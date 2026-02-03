@@ -3,7 +3,7 @@
 A comprehensive full-stack inventory management system built with Spring Boot and React, designed for fashion retail businesses.
 
 ## 🚀 Features
-
+##demo video --https://drive.google.com/drive/folders/1Ak51j0V8khUL8yzsVK9SpxzvISoLPK7r?usp=sharing
 ### 👑 Admin Features
 - **User Management**: Create, approve, reject, and delete users
 - **Product Management**: Full CRUD operations for fashion products
