@@ -29,18 +29,18 @@ public class AlertService {
     public List<AlertResponse> getAllActiveAlerts() {
         List<Alert> activeAlerts = alertRepository.findByStatusOrderByCreatedAtDesc(Alert.AlertStatus.ACTIVE);
         
-        // ✅ FIX: Clean up orphaned alerts (alerts with deleted products)
+        // ✅ FIX: Clean up orphaned alerts automatically (alerts with deleted products)
         List<Alert> validAlerts = activeAlerts.stream()
                 .filter(alert -> alert.getProduct() != null)
                 .collect(Collectors.toList());
         
-        // Remove orphaned alerts from database
+        // Remove orphaned alerts from database automatically
         List<Alert> orphanedAlerts = activeAlerts.stream()
                 .filter(alert -> alert.getProduct() == null)
                 .collect(Collectors.toList());
         
         if (!orphanedAlerts.isEmpty()) {
-            System.out.println("🧹 Cleaning up " + orphanedAlerts.size() + " orphaned alerts");
+            System.out.println("🧹 Auto-cleaning up " + orphanedAlerts.size() + " orphaned alerts");
             alertRepository.deleteAll(orphanedAlerts);
         }
         

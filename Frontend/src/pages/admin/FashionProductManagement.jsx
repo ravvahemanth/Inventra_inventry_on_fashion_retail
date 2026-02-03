@@ -85,7 +85,7 @@ function FashionProductManagement() {
   ];
 
   useEffect(() => {
-    if (userRole !== 'ADMIN' && userRole !== 'MANAGER') {
+    if (userRole !== 'ADMIN') {
       navigate('/dashboard');
     }
   }, [userRole, navigate]);

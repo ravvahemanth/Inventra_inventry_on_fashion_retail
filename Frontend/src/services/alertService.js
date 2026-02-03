@@ -26,6 +26,14 @@ export const getAllAlerts = async () => {
     };
   } catch (error) {
     console.error('Error fetching alerts:', error);
+    // ✅ FIX: Handle 403 Forbidden for STAFF users
+    if (error.response?.status === 403) {
+      console.warn('⚠️ Access denied: User does not have permission to view alerts');
+      return { 
+        data: { alerts: [] },
+        error: 'Access denied: Insufficient permissions to view alerts'
+      };
+    }
     return { data: { alerts: [] } };
   }
 };
@@ -60,6 +68,14 @@ export const getActiveAlerts = async () => {
     };
   } catch (error) {
     console.error('Error fetching active alerts:', error);
+    // ✅ FIX: Handle 403 Forbidden for STAFF users
+    if (error.response?.status === 403) {
+      console.warn('⚠️ Access denied: User does not have permission to view alerts');
+      return { 
+        data: { alerts: [] },
+        error: 'Access denied: Insufficient permissions to view alerts'
+      };
+    }
     return { data: { alerts: [] } };
   }
 };

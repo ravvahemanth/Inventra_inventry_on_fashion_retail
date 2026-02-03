@@ -20,6 +20,7 @@ public class AlertController {
 
     // Get ALL alerts (active + resolved)
     @GetMapping
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER')")
     public ResponseEntity<ApiResponse<List<AlertResponse>>> getAllAlerts() {
         try {
             List<AlertResponse> alerts = alertService.getAllAlerts();
@@ -32,6 +33,7 @@ public class AlertController {
 
     // Get only active alerts
     @GetMapping("/active")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER')")
     public ResponseEntity<ApiResponse<List<AlertResponse>>> getActiveAlerts() {
         try {
             List<AlertResponse> alerts = alertService.getAllActiveAlerts();
@@ -44,6 +46,7 @@ public class AlertController {
 
     // Get recent alerts (top 10)
     @GetMapping("/recent")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER')")
     public ResponseEntity<ApiResponse<List<AlertResponse>>> getRecentAlerts() {
         try {
             List<AlertResponse> alerts = alertService.getRecentAlerts();
@@ -56,6 +59,7 @@ public class AlertController {
 
     // Get alerts by type (LOW_STOCK or OUT_OF_STOCK)
     @GetMapping("/type/{type}")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER')")
     public ResponseEntity<ApiResponse<List<AlertResponse>>> getAlertsByType(@PathVariable String type) {
         try {
             List<AlertResponse> alerts = alertService.getAlertsByType(type);

@@ -76,10 +76,10 @@ public class FashionProductController {
     /**
      * Create new fashion product
      * POST /api/fashion-products
-     * Only ADMIN and MANAGER can create products
+     * Only ADMIN can create products
      */
     @PostMapping
-    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER')")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<FashionProductResponse> createProduct(@Valid @RequestBody FashionProductRequest request) {
         try {
             FashionProductResponse product = fashionProductService.createProduct(request);
@@ -92,10 +92,10 @@ public class FashionProductController {
     /**
      * Update fashion product
      * PUT /api/fashion-products/{id}
-     * Only ADMIN and MANAGER can update products
+     * Only ADMIN can update products
      */
     @PutMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER')")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<FashionProductResponse> updateProduct(@PathVariable Long id, 
                                                               @Valid @RequestBody FashionProductRequest request) {
         try {

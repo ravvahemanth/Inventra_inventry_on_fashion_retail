@@ -45,7 +45,11 @@ function AdminDashboard() {
       // Load admin dashboard data
       const dashboardResponse = await axiosInstance.get('/dashboard/admin');
       setDashboardData(dashboardResponse.data);
-      setAlertCount(dashboardResponse.data.alerts?.length || 0);
+      
+      // ✅ FIX: Use only active alerts for count (consistent with Manager)
+      const activeAlerts = dashboardResponse.data.alerts || [];
+      const activeAlertCount = activeAlerts.filter(alert => alert.status === 'ACTIVE').length;
+      setAlertCount(activeAlertCount);
 
       // Load pending users (only managers need approval)
       const pendingResponse = await axiosInstance.get('/admin/pending-users');

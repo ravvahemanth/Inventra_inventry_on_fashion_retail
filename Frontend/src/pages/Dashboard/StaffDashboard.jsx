@@ -15,6 +15,11 @@ const StaffDashboard = () => {
     stats: {}
   });
   const [loading, setLoading] = useState(true);
+  const [showStockInModal, setShowStockInModal] = useState(false);
+  const [showStockOutModal, setShowStockOutModal] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [stockQuantity, setStockQuantity] = useState('');
+  const [stockReason, setStockReason] = useState('');
 
   useEffect(() => {
     if (userRole !== 'STAFF') {
@@ -39,6 +44,39 @@ const StaffDashboard = () => {
     if (window.confirm('Are you sure you want to logout?')) {
       logout();
       navigate('/login');
+    }
+  };
+
+  const handleStockEntry = async (type) => {
+    if (!selectedProduct || !stockQuantity || !stockReason) {
+      alert('Please fill in all fields');
+      return;
+    }
+
+    try {
+      const stockData = {
+        productId: selectedProduct.id,
+        type: type,
+        quantity: parseInt(stockQuantity),
+        reason: stockReason
+      };
+
+      await axiosInstance.post('/stock-transactions', stockData);
+      
+      // Reset form
+      setSelectedProduct(null);
+      setStockQuantity('');
+      setStockReason('');
+      setShowStockInModal(false);
+      setShowStockOutModal(false);
+      
+      // Refresh dashboard data
+      fetchDashboardData();
+      
+      alert(`Stock ${type === 'STOCK_IN' ? 'added' : 'removed'} successfully!`);
+    } catch (error) {
+      console.error('Error updating stock:', error);
+      alert('Error updating stock: ' + (error.response?.data?.message || error.message));
     }
   };
 
@@ -72,19 +110,11 @@ const StaffDashboard = () => {
           <nav className="sidebar-nav">
             <a href="/dashboard" className="nav-item active">
               <span className="nav-icon">📊</span>
-              <span>Dashboard</span>
+              <span>Staff Dashboard</span>
             </a>
             <a href="/fashion" className="nav-item">
               <span className="nav-icon">👗</span>
               <span>Fashion Collection</span>
-            </a>
-            <a href="/admin/alerts" className="nav-item">
-              <span className="nav-icon">🔔</span>
-              <span>Stock Alerts</span>
-            </a>
-            <a href="/admin/transactions" className="nav-item">
-              <span className="nav-icon">📝</span>
-              <span>Transaction History</span>
             </a>
           </nav>
 
@@ -165,6 +195,32 @@ const StaffDashboard = () => {
                 {(dashboardData.stats.totalProducts || 0) - (dashboardData.stats.lowStockProducts || 0) - (dashboardData.stats.outOfStockProducts || 0)}
               </p>
               <span className="stat-change positive">✓ In good stock</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Stock Entry Section for STAFF */}
+        <div className="recent-activity" style={{ marginBottom: '20px' }}>
+          <h2 style={{ margin: '0 0 20px 0', fontSize: '20px', fontWeight: '700', color: '#1a202c' }}>
+            📦 Stock Entry Management
+          </h2>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px' }}>
+            <div className="stat-card" style={{ cursor: 'pointer' }} onClick={() => setShowStockInModal(true)}>
+              <div className="stat-icon green">📥</div>
+              <div className="stat-details">
+                <h3>Stock In</h3>
+                <p style={{ fontSize: '14px', color: '#666', margin: '5px 0' }}>Add inventory to products</p>
+                <span className="stat-change positive">Click to add stock</span>
+              </div>
+            </div>
+            
+            <div className="stat-card" style={{ cursor: 'pointer' }} onClick={() => setShowStockOutModal(true)}>
+              <div className="stat-icon orange">📤</div>
+              <div className="stat-details">
+                <h3>Stock Out</h3>
+                <p style={{ fontSize: '14px', color: '#666', margin: '5px 0' }}>Remove inventory from products</p>
+                <span className="stat-change negative">Click to remove stock</span>
+              </div>
             </div>
           </div>
         </div>
@@ -269,6 +325,121 @@ const StaffDashboard = () => {
             </table>
           </div>
         </div>
+
+        {/* Stock In Modal */}
+        {showStockInModal && (
+          <div className="modal-overlay" onClick={() => setShowStockInModal(false)}>
+            <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+              <div className="modal-header">
+                <h3>📥 Add Stock (Stock In)</h3>
+                <button className="close-btn" onClick={() => setShowStockInModal(false)}>×</button>
+              </div>
+              <div className="modal-body">
+                <div className="form-group">
+                  <label>Select Product:</label>
+                  <select 
+                    value={selectedProduct?.id || ''} 
+                    onChange={(e) => {
+                      const product = dashboardData.products.find(p => p.id === parseInt(e.target.value));
+                      setSelectedProduct(product);
+                    }}
+                    className="form-control"
+                  >
+                    <option value="">Choose a product...</option>
+                    {dashboardData.products.map(product => (
+                      <option key={product.id} value={product.id}>
+                        {product.name} (Current: {product.totalStock || product.quantity || 0})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Quantity to Add:</label>
+                  <input 
+                    type="number" 
+                    value={stockQuantity} 
+                    onChange={(e) => setStockQuantity(e.target.value)}
+                    className="form-control"
+                    min="1"
+                    placeholder="Enter quantity to add"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Reason:</label>
+                  <input 
+                    type="text" 
+                    value={stockReason} 
+                    onChange={(e) => setStockReason(e.target.value)}
+                    className="form-control"
+                    placeholder="e.g., New shipment received"
+                  />
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button className="btn btn-secondary" onClick={() => setShowStockInModal(false)}>Cancel</button>
+                <button className="btn btn-primary" onClick={() => handleStockEntry('STOCK_IN')}>Add Stock</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Stock Out Modal */}
+        {showStockOutModal && (
+          <div className="modal-overlay" onClick={() => setShowStockOutModal(false)}>
+            <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+              <div className="modal-header">
+                <h3>📤 Remove Stock (Stock Out)</h3>
+                <button className="close-btn" onClick={() => setShowStockOutModal(false)}>×</button>
+              </div>
+              <div className="modal-body">
+                <div className="form-group">
+                  <label>Select Product:</label>
+                  <select 
+                    value={selectedProduct?.id || ''} 
+                    onChange={(e) => {
+                      const product = dashboardData.products.find(p => p.id === parseInt(e.target.value));
+                      setSelectedProduct(product);
+                    }}
+                    className="form-control"
+                  >
+                    <option value="">Choose a product...</option>
+                    {dashboardData.products.map(product => (
+                      <option key={product.id} value={product.id}>
+                        {product.name} (Current: {product.totalStock || product.quantity || 0})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Quantity to Remove:</label>
+                  <input 
+                    type="number" 
+                    value={stockQuantity} 
+                    onChange={(e) => setStockQuantity(e.target.value)}
+                    className="form-control"
+                    min="1"
+                    max={selectedProduct?.totalStock || selectedProduct?.quantity || 0}
+                    placeholder="Enter quantity to remove"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Reason:</label>
+                  <input 
+                    type="text" 
+                    value={stockReason} 
+                    onChange={(e) => setStockReason(e.target.value)}
+                    className="form-control"
+                    placeholder="e.g., Sold to customer, Damaged goods"
+                  />
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button className="btn btn-secondary" onClick={() => setShowStockOutModal(false)}>Cancel</button>
+                <button className="btn btn-danger" onClick={() => handleStockEntry('STOCK_OUT')}>Remove Stock</button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

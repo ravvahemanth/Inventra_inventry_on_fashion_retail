@@ -100,10 +100,10 @@ public class StockTransactionController {
     /**
      * Create a new stock transaction
      * POST /api/stock-transactions
-     * Only MANAGER and ADMIN can create stock transactions
+     * ADMIN: Full access, MANAGER: Approve stock updates, STAFF: Add stock entries
      */
     @PostMapping
-    @PreAuthorize("hasRole('MANAGER') or hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER') or hasRole('STAFF')")
     public ResponseEntity<StockTransactionResponse> createTransaction(
             @RequestBody StockTransactionRequest request) {
         try {

@@ -78,7 +78,7 @@ function App() {
         <Route 
           path="/admin/fashion/add" 
           element={
-            <ProtectedRoute allowedRoles={['ADMIN', 'MANAGER']}>
+            <ProtectedRoute allowedRoles={['ADMIN']}>
               <FashionProductManagement />
             </ProtectedRoute>
           } 
@@ -87,7 +87,7 @@ function App() {
         <Route 
           path="/fashion/add-product" 
           element={
-            <ProtectedRoute allowedRoles={['ADMIN', 'MANAGER']}>
+            <ProtectedRoute allowedRoles={['ADMIN']}>
               <FashionProductManagement />
             </ProtectedRoute>
           } 
@@ -96,7 +96,7 @@ function App() {
         <Route 
           path="/admin/fashion-stock" 
           element={
-            <ProtectedRoute allowedRoles={['ADMIN', 'MANAGER']}>
+            <ProtectedRoute allowedRoles={['ADMIN']}>
               <FashionStockManagement />
             </ProtectedRoute>
           } 
@@ -115,7 +115,7 @@ function App() {
         <Route 
           path="/alerts" 
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={['ADMIN', 'MANAGER']}>
               <Alerts />
             </ProtectedRoute>
           } 
@@ -124,7 +124,7 @@ function App() {
         <Route 
           path="/admin/alerts" 
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={['ADMIN', 'MANAGER']}>
               <Alerts />
             </ProtectedRoute>
           } 
@@ -133,7 +133,7 @@ function App() {
         <Route 
           path="/manager/alerts" 
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={['ADMIN', 'MANAGER']}>
               <ManagerAlerts />
             </ProtectedRoute>
           } 
@@ -142,7 +142,7 @@ function App() {
         <Route 
           path="/transactions" 
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={['ADMIN', 'MANAGER']}>
               <Transactions />
             </ProtectedRoute>
           } 
@@ -151,7 +151,7 @@ function App() {
         <Route 
           path="/admin/transactions" 
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={['ADMIN', 'MANAGER']}>
               <Transactions />
             </ProtectedRoute>
           } 

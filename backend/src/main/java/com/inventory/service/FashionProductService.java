@@ -28,6 +28,9 @@ public class FashionProductService {
     @Autowired
     private AlertService alertService;
     
+    @Autowired
+    private FashionAlertService fashionAlertService;
+    
     /**
      * Get all fashion products
      */
@@ -42,7 +45,7 @@ public class FashionProductService {
      * Get product by ID
      */
     public FashionProductResponse getProductById(Long id) {
-        FashionProduct product = fashionProductRepository.findById(id)
+        FashionProduct product = fashionProductRepository.findByIdWithVariants(id)
                 .orElseThrow(() -> new RuntimeException("Fashion product not found with ID: " + id));
         return new FashionProductResponse(product);
     }
@@ -91,10 +94,9 @@ public class FashionProductService {
                 
                 productVariantRepository.save(variant);
                 
-                // Check for alerts on the variant
+                // Check for alerts on the variant using FashionAlertService
                 if (variant.isLowStock() || variant.isOutOfStock()) {
-                    // Create alert for this specific variant
-                    alertService.checkAndCreateVariantAlerts(variant);
+                    fashionAlertService.checkAndCreateVariantAlerts(variant);
                 }
             }
         }

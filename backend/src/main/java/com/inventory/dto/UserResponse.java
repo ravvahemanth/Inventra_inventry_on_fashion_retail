@@ -1,5 +1,6 @@
 package com.inventory.dto;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import com.inventory.model.User;
 
 import java.time.LocalDateTime;
@@ -11,6 +12,8 @@ public class UserResponse {
     private String email;
     private String role;
     private String status;
+    
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime createdAt;
     
     // Constructors

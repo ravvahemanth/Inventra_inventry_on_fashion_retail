@@ -15,6 +15,10 @@ public interface FashionProductRepository extends JpaRepository<FashionProduct, 
     // Find by SKU
     Optional<FashionProduct> findBySku(String sku);
     
+    // Find by ID with variants (eager loading)
+    @Query("SELECT p FROM FashionProduct p LEFT JOIN FETCH p.variants WHERE p.id = :id")
+    Optional<FashionProduct> findByIdWithVariants(@Param("id") Long id);
+    
     // Find by name (case insensitive)
     Optional<FashionProduct> findByNameIgnoreCase(String name);
     
