@@ -18,6 +18,8 @@ const StaffDashboard = () => {
   const [showStockInModal, setShowStockInModal] = useState(false);
   const [showStockOutModal, setShowStockOutModal] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
+  const [selectedVariant, setSelectedVariant] = useState(null);
+  const [productVariants, setProductVariants] = useState([]);
   const [stockQuantity, setStockQuantity] = useState('');
   const [stockReason, setStockReason] = useState('');
 
@@ -47,15 +49,35 @@ const StaffDashboard = () => {
     }
   };
 
+  const handleProductSelect = async (productId) => {
+    const product = dashboardData.products.find(p => p.id === parseInt(productId));
+    setSelectedProduct(product);
+    setSelectedVariant(null);
+    
+    if (product && product.variants && product.variants.length > 0) {
+      setProductVariants(product.variants);
+    } else {
+      // Fetch variants from API if not included in dashboard data
+      try {
+        const response = await axiosInstance.get(`/fashion-products/${productId}`);
+        setProductVariants(response.data.variants || []);
+      } catch (error) {
+        console.error('Error fetching product variants:', error);
+        setProductVariants([]);
+      }
+    }
+  };
+
   const handleStockEntry = async (type) => {
-    if (!selectedProduct || !stockQuantity || !stockReason) {
-      alert('Please fill in all fields');
+    if (!selectedProduct || !selectedVariant || !stockQuantity || !stockReason) {
+      alert('Please fill in all fields including variant selection');
       return;
     }
 
     try {
       const stockData = {
-        productId: selectedProduct.id,
+        fashionProductId: selectedProduct.id,
+        variantId: selectedVariant.id,
         type: type,
         quantity: parseInt(stockQuantity),
         reason: stockReason
@@ -65,6 +87,8 @@ const StaffDashboard = () => {
       
       // Reset form
       setSelectedProduct(null);
+      setSelectedVariant(null);
+      setProductVariants([]);
       setStockQuantity('');
       setStockReason('');
       setShowStockInModal(false);
@@ -339,20 +363,48 @@ const StaffDashboard = () => {
                   <label>Select Product:</label>
                   <select 
                     value={selectedProduct?.id || ''} 
-                    onChange={(e) => {
-                      const product = dashboardData.products.find(p => p.id === parseInt(e.target.value));
-                      setSelectedProduct(product);
-                    }}
+                    onChange={(e) => handleProductSelect(e.target.value)}
                     className="form-control"
                   >
                     <option value="">Choose a product...</option>
                     {dashboardData.products.map(product => (
                       <option key={product.id} value={product.id}>
-                        {product.name} (Current: {product.totalStock || product.quantity || 0})
+                        {product.name} - {product.brand}
                       </option>
                     ))}
                   </select>
                 </div>
+                
+                {selectedProduct && productVariants.length > 0 && (
+                  <div className="form-group">
+                    <label>Select Variant (Size/Color):</label>
+                    <select 
+                      value={selectedVariant?.id || ''} 
+                      onChange={(e) => {
+                        const variant = productVariants.find(v => v.id === parseInt(e.target.value));
+                        setSelectedVariant(variant);
+                      }}
+                      className="form-control"
+                    >
+                      <option value="">Choose a variant...</option>
+                      {productVariants.map(variant => (
+                        <option key={variant.id} value={variant.id}>
+                          {variant.sizeDisplayName || variant.size} / {variant.colorDisplayName || variant.color} 
+                          (Current Stock: {variant.quantity})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+                
+                {selectedProduct && productVariants.length === 0 && (
+                  <div className="form-group">
+                    <p style={{ color: '#e53e3e', fontSize: '14px', margin: '10px 0' }}>
+                      ⚠️ No variants available for this product. Please add variants first.
+                    </p>
+                  </div>
+                )}
+                
                 <div className="form-group">
                   <label>Quantity to Add:</label>
                   <input 
@@ -362,6 +414,7 @@ const StaffDashboard = () => {
                     className="form-control"
                     min="1"
                     placeholder="Enter quantity to add"
+                    disabled={!selectedVariant}
                   />
                 </div>
                 <div className="form-group">
@@ -372,12 +425,19 @@ const StaffDashboard = () => {
                     onChange={(e) => setStockReason(e.target.value)}
                     className="form-control"
                     placeholder="e.g., New shipment received"
+                    disabled={!selectedVariant}
                   />
                 </div>
               </div>
               <div className="modal-footer">
                 <button className="btn btn-secondary" onClick={() => setShowStockInModal(false)}>Cancel</button>
-                <button className="btn btn-primary" onClick={() => handleStockEntry('STOCK_IN')}>Add Stock</button>
+                <button 
+                  className="btn btn-primary" 
+                  onClick={() => handleStockEntry('STOCK_IN')}
+                  disabled={!selectedVariant || !stockQuantity || !stockReason}
+                >
+                  Add Stock
+                </button>
               </div>
             </div>
           </div>
@@ -396,20 +456,48 @@ const StaffDashboard = () => {
                   <label>Select Product:</label>
                   <select 
                     value={selectedProduct?.id || ''} 
-                    onChange={(e) => {
-                      const product = dashboardData.products.find(p => p.id === parseInt(e.target.value));
-                      setSelectedProduct(product);
-                    }}
+                    onChange={(e) => handleProductSelect(e.target.value)}
                     className="form-control"
                   >
                     <option value="">Choose a product...</option>
                     {dashboardData.products.map(product => (
                       <option key={product.id} value={product.id}>
-                        {product.name} (Current: {product.totalStock || product.quantity || 0})
+                        {product.name} - {product.brand}
                       </option>
                     ))}
                   </select>
                 </div>
+                
+                {selectedProduct && productVariants.length > 0 && (
+                  <div className="form-group">
+                    <label>Select Variant (Size/Color):</label>
+                    <select 
+                      value={selectedVariant?.id || ''} 
+                      onChange={(e) => {
+                        const variant = productVariants.find(v => v.id === parseInt(e.target.value));
+                        setSelectedVariant(variant);
+                      }}
+                      className="form-control"
+                    >
+                      <option value="">Choose a variant...</option>
+                      {productVariants.map(variant => (
+                        <option key={variant.id} value={variant.id}>
+                          {variant.sizeDisplayName || variant.size} / {variant.colorDisplayName || variant.color} 
+                          (Current Stock: {variant.quantity})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+                
+                {selectedProduct && productVariants.length === 0 && (
+                  <div className="form-group">
+                    <p style={{ color: '#e53e3e', fontSize: '14px', margin: '10px 0' }}>
+                      ⚠️ No variants available for this product. Please add variants first.
+                    </p>
+                  </div>
+                )}
+                
                 <div className="form-group">
                   <label>Quantity to Remove:</label>
                   <input 
@@ -418,9 +506,15 @@ const StaffDashboard = () => {
                     onChange={(e) => setStockQuantity(e.target.value)}
                     className="form-control"
                     min="1"
-                    max={selectedProduct?.totalStock || selectedProduct?.quantity || 0}
+                    max={selectedVariant?.quantity || 0}
                     placeholder="Enter quantity to remove"
+                    disabled={!selectedVariant}
                   />
+                  {selectedVariant && (
+                    <small style={{ color: '#718096', fontSize: '12px', marginTop: '5px', display: 'block' }}>
+                      Available: {selectedVariant.quantity} units
+                    </small>
+                  )}
                 </div>
                 <div className="form-group">
                   <label>Reason:</label>
@@ -430,12 +524,19 @@ const StaffDashboard = () => {
                     onChange={(e) => setStockReason(e.target.value)}
                     className="form-control"
                     placeholder="e.g., Sold to customer, Damaged goods"
+                    disabled={!selectedVariant}
                   />
                 </div>
               </div>
               <div className="modal-footer">
                 <button className="btn btn-secondary" onClick={() => setShowStockOutModal(false)}>Cancel</button>
-                <button className="btn btn-danger" onClick={() => handleStockEntry('STOCK_OUT')}>Remove Stock</button>
+                <button 
+                  className="btn btn-danger" 
+                  onClick={() => handleStockEntry('STOCK_OUT')}
+                  disabled={!selectedVariant || !stockQuantity || !stockReason}
+                >
+                  Remove Stock
+                </button>
               </div>
             </div>
           </div>
