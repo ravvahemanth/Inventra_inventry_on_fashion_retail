@@ -1,32 +1,45 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getUserRole, logout } from '../../services/authService';
+import {
+  Shirt,
+  Search,
+  SlidersHorizontal,
+  PlusCircle,
+  Package,
+  Filter,
+  X,
+  Tag,
+} from 'lucide-react';
+import AppLayout from '../../components/layout/AppLayout';
+import StatusBadge from '../../components/ui/StatusBadge';
 import axiosInstance from '../../utils/axiosConfig';
-import './FashionProducts.css';
-import '../Dashboard/Dashboard.css';
+import { getUserRole } from '../../services/authService';
 
 function FashionProducts() {
   const navigate = useNavigate();
   const userRole = getUserRole();
-  const userEmail = localStorage.getItem('userEmail') || 'User';
-  const username = localStorage.getItem('username') || 'User';
+  const isAdmin = userRole === 'ADMIN';
+
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('ALL');
   const [selectedSeason, setSelectedSeason] = useState('ALL');
   const [selectedGender, setSelectedGender] = useState('ALL');
-  const [selectedBrand, setSelectedBrand] = useState('ALL');
-  const [priceRange, setPriceRange] = useState({ min: '', max: '' });
   const [showFilters, setShowFilters] = useState(false);
-  const [showSidebar, setShowSidebar] = useState(false);
 
-  // Fashion categories
   const categories = [
-    'ALL', 'CLOTHING_MENS', 'CLOTHING_WOMENS', 'CLOTHING_KIDS',
-    'FOOTWEAR_MENS', 'FOOTWEAR_WOMENS', 'FOOTWEAR_KIDS',
-    'ACCESSORIES_BAGS', 'ACCESSORIES_JEWELRY', 'ACCESSORIES_WATCHES',
-    'ACCESSORIES_BELTS', 'ACCESSORIES_HATS', 'ACCESSORIES_SUNGLASSES'
+    { key: 'ALL', label: 'All Categories' },
+    { key: 'CLOTHING_MENS', label: "Men's Apparel" },
+    { key: 'CLOTHING_WOMENS', label: "Women's Collection" },
+    { key: 'CLOTHING_KIDS', label: "Kids' Collection" },
+    { key: 'FOOTWEAR_MENS', label: "Men's Footwear" },
+    { key: 'FOOTWEAR_WOMENS', label: "Women's Footwear" },
+    { key: 'FOOTWEAR_KIDS', label: "Kids' Footwear" },
+    { key: 'ACCESSORIES_BAGS', label: 'Bags & Purses' },
+    { key: 'ACCESSORIES_JEWELRY', label: 'Jewelry' },
+    { key: 'ACCESSORIES_WATCHES', label: 'Watches' },
+    { key: 'ACCESSORIES_SUNGLASSES', label: 'Eyewear' },
   ];
 
   const seasons = ['ALL', 'SPRING', 'SUMMER', 'AUTUMN', 'WINTER', 'ALL_SEASON'];
@@ -38,540 +51,304 @@ function FashionProducts() {
 
   const loadProducts = async () => {
     try {
-      console.log('🔄 Loading fashion products...');
-      const response = await axiosInstance.get('/fashion-products');
-      console.log('👗 Fashion products response:', response.data);
-      setProducts(response.data || []);
-    } catch (error) {
-      console.error('❌ Error loading fashion products:', error);
-      setProducts([]);
+      setLoading(true);
+      const res = await axiosInstance.get('/fashion-products');
+      setProducts(res.data || []);
+    } catch (err) {
+      console.error('Error fetching fashion catalog:', err);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSearch = async () => {
-    if (!searchTerm.trim()) {
-      loadProducts();
-      return;
-    }
+  const filteredProducts = products.filter((p) => {
+    const matchesSearch =
+      !searchTerm.trim() ||
+      p.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      p.brand?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      p.sku?.toLowerCase().includes(searchTerm.toLowerCase());
 
-    try {
-      const response = await axiosInstance.get(`/fashion-products/search?q=${encodeURIComponent(searchTerm)}`);
-      setProducts(response.data || []);
-    } catch (error) {
-      console.error('❌ Error searching products:', error);
-      setProducts([]);
-    }
-  };
+    const matchesCategory = selectedCategory === 'ALL' || p.category === selectedCategory;
+    const matchesSeason = selectedSeason === 'ALL' || p.season === selectedSeason;
+    const matchesGender = selectedGender === 'ALL' || p.targetGender === selectedGender;
 
-  const handleCategoryFilter = async (category) => {
-    setSelectedCategory(category);
-    if (category === 'ALL') {
-      loadProducts();
-      return;
-    }
-
-    try {
-      const response = await axiosInstance.get(`/fashion-products/category/${category}`);
-      setProducts(response.data || []);
-    } catch (error) {
-      console.error('❌ Error filtering by category:', error);
-      setProducts([]);
-    }
-  };
-
-  const handleSeasonFilter = async (season) => {
-    setSelectedSeason(season);
-    if (season === 'ALL') {
-      loadProducts();
-      return;
-    }
-
-    try {
-      const response = await axiosInstance.get(`/fashion-products/season/${season}`);
-      setProducts(response.data || []);
-    } catch (error) {
-      console.error('❌ Error filtering by season:', error);
-      setProducts([]);
-    }
-  };
-
-  const handleGenderFilter = async (gender) => {
-    setSelectedGender(gender);
-    if (gender === 'ALL') {
-      loadProducts();
-      return;
-    }
-
-    try {
-      const response = await axiosInstance.get(`/fashion-products/gender/${gender}`);
-      setProducts(response.data || []);
-    } catch (error) {
-      console.error('❌ Error filtering by gender:', error);
-      setProducts([]);
-    }
-  };
-
-  const handlePriceFilter = async () => {
-    if (!priceRange.min || !priceRange.max) {
-      loadProducts();
-      return;
-    }
-
-    try {
-      const response = await axiosInstance.get(
-        `/fashion-products/price-range?min=${priceRange.min}&max=${priceRange.max}`
-      );
-      setProducts(response.data || []);
-    } catch (error) {
-      console.error('❌ Error filtering by price:', error);
-      setProducts([]);
-    }
-  };
-
-  const handleLogout = () => {
-    if (window.confirm('Are you sure you want to logout?')) {
-      logout();
-      navigate('/login');
-    }
-  };
-
-  const getRoleDisplayName = () => {
-    switch(userRole) {
-      case 'ADMIN': return 'Fashion Administrator';
-      case 'MANAGER': return 'Fashion Manager';
-      case 'STAFF': return 'Fashion Staff';
-      default: return 'Fashion User';
-    }
-  };
-
-  const getRoleEmoji = () => {
-    switch(userRole) {
-      case 'ADMIN': return '👑';
-      case 'MANAGER': return '👔';
-      case 'STAFF': return '👨‍💼';
-      default: return '👤';
-    }
-  };
-
-  const getRoleColor = () => {
-    switch(userRole) {
-      case 'ADMIN': return '#9f7aea';
-      case 'MANAGER': return '#ed8936';
-      case 'STAFF': return '#38b2ac';
-      default: return '#4a5568';
-    }
-  };
+    return matchesSearch && matchesCategory && matchesSeason && matchesGender;
+  });
 
   const clearFilters = () => {
     setSelectedCategory('ALL');
     setSelectedSeason('ALL');
     setSelectedGender('ALL');
-    setSelectedBrand('ALL');
-    setPriceRange({ min: '', max: '' });
     setSearchTerm('');
-    loadProducts();
   };
-
-  const getCategoryDisplayName = (category) => {
-    const categoryMap = {
-      'CLOTHING_MENS': "Men's Clothing",
-      'CLOTHING_WOMENS': "Women's Clothing",
-      'CLOTHING_KIDS': "Kids' Clothing",
-      'FOOTWEAR_MENS': "Men's Footwear",
-      'FOOTWEAR_WOMENS': "Women's Footwear",
-      'FOOTWEAR_KIDS': "Kids' Footwear",
-      'ACCESSORIES_BAGS': 'Bags & Purses',
-      'ACCESSORIES_JEWELRY': 'Jewelry',
-      'ACCESSORIES_WATCHES': 'Watches',
-      'ACCESSORIES_BELTS': 'Belts',
-      'ACCESSORIES_HATS': 'Hats & Caps',
-      'ACCESSORIES_SUNGLASSES': 'Sunglasses'
-    };
-    return categoryMap[category] || category;
-  };
-
-  const getStockStatus = (product) => {
-    if (product.outOfStock) return { status: 'Out of Stock', class: 'out-of-stock' };
-    if (product.lowStock) return { status: 'Low Stock', class: 'low-stock' };
-    return { status: 'In Stock', class: 'in-stock' };
-  };
-
-  const getCategoryIcon = (category) => {
-    const categoryIcons = {
-      // Men's Clothing
-      'CLOTHING_MENS': '👔',
-      
-      // Women's Clothing  
-      'CLOTHING_WOMENS': '👗',
-      
-      // Kids' Clothing
-      'CLOTHING_KIDS': '👶',
-      
-      // Men's Footwear
-      'FOOTWEAR_MENS': '👞',
-      
-      // Women's Footwear
-      'FOOTWEAR_WOMENS': '👠',
-      
-      // Kids' Footwear
-      'FOOTWEAR_KIDS': '👟',
-      
-      // Accessories
-      'ACCESSORIES_BAGS': '👜',
-      'ACCESSORIES_JEWELRY': '💍',
-      'ACCESSORIES_WATCHES': '⌚',
-      'ACCESSORIES_BELTS': '🔗',
-      'ACCESSORIES_HATS': '🎩',
-      'ACCESSORIES_SUNGLASSES': '🕶️'
-    };
-    
-    return categoryIcons[category] || '👗';
-  };
-
-  const getSeasonEmoji = (season) => {
-    const seasonEmojis = {
-      'SPRING': '🌸',
-      'SUMMER': '☀️',
-      'AUTUMN': '🍂',
-      'WINTER': '❄️',
-      'ALL_SEASON': '🌍'
-    };
-    return seasonEmojis[season] || '🌍';
-  };
-
-  const getGenderEmoji = (gender) => {
-    const genderEmojis = {
-      'MALE': '👨',
-      'FEMALE': '👩',
-      'UNISEX': '👫',
-      'KIDS': '👶'
-    };
-    return genderEmojis[gender] || '👫';
-  };
-
-  if (loading) {
-    return (
-      <div className="dashboard-container">
-        <div className="main-content">
-          <div className="loading-state">
-            <div className="spinner-large"></div>
-            <p>Loading fashion collection...</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
-    <div className="dashboard-container">
-      {/* Mobile Sidebar */}
-      <div className={`mobile-sidebar ${showSidebar ? 'active' : ''}`}>
-        <div className="sidebar-overlay" onClick={() => setShowSidebar(false)}></div>
-        <div className="sidebar-content">
-          <div className="sidebar-header">
-            <div className="logo">
-              <span className="logo-icon">👗</span>
-              <h2>Fashion Retail</h2>
-            </div>
-            <button className="close-sidebar" onClick={() => setShowSidebar(false)}>✕</button>
-          </div>
-
-          <div className="role-indicator-mobile" style={{ backgroundColor: getRoleColor() }}>
-            <span>{getRoleEmoji()}</span>
-            <span className="role-text">{getRoleDisplayName()}</span>
-          </div>
-
-          <nav className="sidebar-nav">
-            <a href="/dashboard" className="nav-item">
-              <span className="nav-icon">📊</span>
-              <span>Dashboard</span>
-            </a>
-            <a href="/fashion" className="nav-item active">
-              <span className="nav-icon">👗</span>
-              <span>Fashion Collection</span>
-            </a>
-            {(userRole === 'ADMIN' || userRole === 'MANAGER') && (
-              <a href="/fashion/add-product" className="nav-item">
-                <span className="nav-icon">➕</span>
-                <span>Add Fashion Items</span>
-              </a>
-            )}
-            {(userRole === 'ADMIN' || userRole === 'MANAGER') && (
-              <a href="/admin/fashion-stock" className="nav-item">
-                <span className="nav-icon">📦</span>
-                <span>Stock Management</span>
-              </a>
-            )}
-            <a href="/admin/alerts" className="nav-item">
-              <span className="nav-icon">🔔</span>
-              <span>Stock Alerts</span>
-            </a>
-            {userRole === 'ADMIN' && (
-              <a href="/admin/users" className="nav-item">
-                <span className="nav-icon">👥</span>
-                <span>User Management</span>
-              </a>
-            )}
-            <a href="/admin/transactions" className="nav-item">
-              <span className="nav-icon">📝</span>
-              <span>Transaction History</span>
-            </a>
-          </nav>
-
-          <div className="sidebar-footer">
-            <div className="user-info-sidebar">
-              <div className="user-avatar-large">{username.charAt(0).toUpperCase()}</div>
-              <div className="user-details">
-                <p className="user-name-sidebar">{username}</p>
-                <p className="user-email-sidebar">{userEmail}</p>
-              </div>
-            </div>
-            <button className="logout-btn-sidebar" onClick={handleLogout}>
-              <span className="nav-icon">🚪</span>
-              <span>Logout</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Main Content */}
-      <div className="main-content">
-        {/* Top Bar */}
-        <div className="topbar">
-          <div className="topbar-left">
-            <button className="menu-btn" onClick={() => setShowSidebar(true)}>
-              ☰
-            </button>
-            <button className="back-btn" onClick={() => navigate('/dashboard')}>
-              ← Back to Dashboard
-            </button>
-            <div className="page-title-dash">
-              <h1>👗 Fashion Collection</h1>
-              <p className="topbar-subtitle">Discover the latest trends in apparel, footwear, and accessories</p>
-            </div>
-          </div>
-          <div className="user-profile">
-            <div className="user-avatar">{username.charAt(0).toUpperCase()}</div>
-            <div className="user-info">
-              <span className="user-name">{username}</span>
-              <span className="user-role" style={{ color: getRoleColor() }}>
-                {getRoleEmoji()} {getRoleDisplayName()}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Header Actions */}
-        <div className="fashion-header-actions">
-          <div className="header-actions">
-            <button 
-              className="filter-toggle-btn"
-              onClick={() => setShowFilters(!showFilters)}
-            >
-              🔍 {showFilters ? 'Hide Filters' : 'Show Filters'}
-            </button>
-            {(userRole === 'ADMIN' || userRole === 'MANAGER') && (
-              <button 
-                className="add-product-btn"
-                onClick={() => navigate('/fashion/add-product')}
+    <AppLayout
+      title="Fashion Catalog"
+      subtitle="Smart Fashion Retail Cloud • Apparel & Footwear Inventory Matrix"
+    >
+      <div className="space-y-6">
+        {/* Top Control Bar: Search & Action Buttons */}
+        <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+          {/* Search Input */}
+          <div className="relative flex-1">
+            <Search className="w-5 h-5 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search by product name, brand, SKU code..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-11 pr-4 py-2.5 bg-white border border-slate-300 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 transition-all shadow-2xs"
+            />
+            {searchTerm && (
+              <button
+                onClick={() => setSearchTerm('')}
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
               >
-                ➕ Add New Product
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex items-center gap-3 shrink-0">
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className={`px-4 py-2.5 rounded-xl border text-xs font-bold flex items-center gap-2 transition-all ${
+                showFilters || selectedCategory !== 'ALL' || selectedSeason !== 'ALL'
+                  ? 'bg-indigo-50 border-indigo-300 text-indigo-700'
+                  : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-50'
+              }`}
+            >
+              <SlidersHorizontal className="w-4 h-4" />
+              <span>Filters</span>
+              {(selectedCategory !== 'ALL' || selectedSeason !== 'ALL' || selectedGender !== 'ALL') && (
+                <span className="w-2 h-2 rounded-full bg-indigo-600" />
+              )}
+            </button>
+
+            {isAdmin && (
+              <button
+                onClick={() => navigate('/admin/fashion/add')}
+                className="px-4 py-2.5 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 shadow-md shadow-indigo-600/20 flex items-center gap-2 transition-all active:scale-[0.99]"
+              >
+                <PlusCircle className="w-4 h-4" />
+                <span>Add Fashion Item</span>
               </button>
             )}
           </div>
         </div>
 
-      {/* Filters */}
-      {showFilters && (
-        <div className="fashion-filters">
-          <div className="filter-row">
-            <div className="search-filter">
-              <input
-                type="text"
-                placeholder="Search products..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-              />
-              <button onClick={handleSearch}>🔍</button>
-            </div>
-
-            <div className="filter-group">
-              <label>Category</label>
-              <select 
-                value={selectedCategory} 
-                onChange={(e) => handleCategoryFilter(e.target.value)}
+        {/* Collapsible Filter Bar */}
+        {showFilters && (
+          <div className="p-5 rounded-2xl bg-white border border-slate-200 space-y-4 shadow-sm animate-in fade-in duration-150">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-700 font-display flex items-center gap-1.5">
+                <Filter className="w-3.5 h-3.5 text-indigo-600" /> Filter Catalog
+              </span>
+              <button
+                onClick={clearFilters}
+                className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 transition-colors"
               >
-                {categories.map(category => (
-                  <option key={category} value={category}>
-                    {category === 'ALL' ? 'All Categories' : getCategoryDisplayName(category)}
-                  </option>
-                ))}
-              </select>
+                Reset All Filters
+              </button>
             </div>
 
-            <div className="filter-group">
-              <label>Season</label>
-              <select 
-                value={selectedSeason} 
-                onChange={(e) => handleSeasonFilter(e.target.value)}
-              >
-                {seasons.map(season => (
-                  <option key={season} value={season}>
-                    {season === 'ALL' ? 'All Seasons' : season.charAt(0) + season.slice(1).toLowerCase()}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Category Select */}
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold uppercase text-slate-600 tracking-wider">
+                  Category
+                </label>
+                <select
+                  value={selectedCategory}
+                  onChange={(e) => setSelectedCategory(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:border-indigo-600"
+                >
+                  {categories.map((c) => (
+                    <option key={c.key} value={c.key}>
+                      {c.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-            <div className="filter-group">
-              <label>Gender</label>
-              <select 
-                value={selectedGender} 
-                onChange={(e) => handleGenderFilter(e.target.value)}
-              >
-                {genders.map(gender => (
-                  <option key={gender} value={gender}>
-                    {gender === 'ALL' ? 'All Genders' : gender.charAt(0) + gender.slice(1).toLowerCase()}
-                  </option>
-                ))}
-              </select>
-            </div>
+              {/* Season Select */}
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold uppercase text-slate-600 tracking-wider">
+                  Collection Season
+                </label>
+                <select
+                  value={selectedSeason}
+                  onChange={(e) => setSelectedSeason(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:border-indigo-600"
+                >
+                  {seasons.map((s) => (
+                    <option key={s} value={s}>
+                      {s.replace('_', ' ')}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-            <div className="price-filter">
-              <label>Price Range</label>
-              <div className="price-inputs">
-                <input
-                  type="number"
-                  placeholder="Min"
-                  value={priceRange.min}
-                  onChange={(e) => setPriceRange({...priceRange, min: e.target.value})}
-                />
-                <span>-</span>
-                <input
-                  type="number"
-                  placeholder="Max"
-                  value={priceRange.max}
-                  onChange={(e) => setPriceRange({...priceRange, max: e.target.value})}
-                />
-                <button onClick={handlePriceFilter}>Apply</button>
+              {/* Gender Select */}
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold uppercase text-slate-600 tracking-wider">
+                  Target Demographic
+                </label>
+                <select
+                  value={selectedGender}
+                  onChange={(e) => setSelectedGender(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:border-indigo-600"
+                >
+                  {genders.map((g) => (
+                    <option key={g} value={g}>
+                      {g}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
+          </div>
+        )}
 
-            <button className="clear-filters-btn" onClick={clearFilters}>
-              🗑️ Clear All
+        {/* Category Filter Pills Quick Bar */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+          {categories.slice(0, 7).map((c) => (
+            <button
+              key={c.key}
+              onClick={() => setSelectedCategory(c.key)}
+              className={`px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all ${
+                selectedCategory === c.key
+                  ? 'bg-indigo-600 text-white shadow-xs'
+                  : 'bg-white text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-slate-200'
+              }`}
+            >
+              {c.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Product Grid */}
+        {loading ? (
+          <div className="py-20 text-center space-y-3">
+            <div className="w-10 h-10 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto" />
+            <p className="text-xs text-slate-500 font-medium">Loading fashion catalog...</p>
+          </div>
+        ) : filteredProducts.length === 0 ? (
+          <div className="py-16 text-center space-y-3 cloud-card p-8">
+            <Package className="w-12 h-12 text-slate-400 mx-auto" />
+            <h3 className="text-base font-bold font-display text-slate-900">No Fashion Pieces Found</h3>
+            <p className="text-xs text-slate-500 max-w-sm mx-auto font-medium">
+              No products match your active search or filter parameters. Reset filters to view all products.
+            </p>
+            <button
+              onClick={clearFilters}
+              className="px-4 py-2 text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl transition-all border border-slate-200"
+            >
+              Reset Filters
             </button>
           </div>
-        </div>
-      )}
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+            {filteredProducts.map((product) => {
+              const totalVariants = product.variants?.length || 0;
+              const totalStock = (product.variants || []).reduce((acc, v) => acc + (v.quantity || 0), 0);
 
-        {/* Products Grid */}
-        <div className="fashion-products-grid">
-          {products.length === 0 ? (
-            <div className="empty-state">
-              <div className="empty-icon">👗</div>
-              <h3>No Products Found</h3>
-              <p>Try adjusting your filters or search criteria</p>
-            </div>
-          ) : (
-            products.map(product => {
-              const stockStatus = getStockStatus(product);
               return (
-                <div key={product.id} className="fashion-product-card">
-                  <div className="product-image-placeholder">
-                    <span className="product-category-icon">
-                      {getCategoryIcon(product.category)}
-                    </span>
-                  </div>
-                  
-                  <div className="product-info">
-                    <div className="product-header">
-                      <h3 className="product-name">{product.name}</h3>
-                      <div className="product-badges">
-                        <span className="season-badge">
-                          {getSeasonEmoji(product.season)} {product.seasonDisplayName}
-                        </span>
-                        <span className="gender-badge">
-                          {getGenderEmoji(product.targetGender)} {product.genderDisplayName}
-                        </span>
+                <div
+                  key={product.id}
+                  onClick={() => navigate(`/fashion/product/${product.id}`)}
+                  className="cloud-card cloud-card-hover cursor-pointer flex flex-col justify-between overflow-hidden group"
+                >
+                  {/* Card Header & Artwork */}
+                  <div>
+                    <div className="relative h-44 bg-gradient-to-br from-slate-50 via-slate-100 to-indigo-50/40 flex items-center justify-center border-b border-slate-100">
+                      <Shirt className="w-16 h-16 text-indigo-300 group-hover:text-indigo-600 group-hover:scale-105 transition-all duration-200" />
+
+                      {/* Top Status & Season Pills */}
+                      <div className="absolute top-3 left-3">
+                        <StatusBadge
+                          status={product.outOfStock ? 'Out of Stock' : product.lowStock ? 'Low Stock' : 'In Stock'}
+                        />
                       </div>
-                    </div>
-                    
-                    <p className="product-brand">by {product.brand}</p>
-                    <p className="product-description">{product.description}</p>
-                    
-                    <div className="product-details">
-                      <div className="product-category">
-                        <span className="label">Category:</span>
-                        <span className="value">{product.categoryDisplayName}</span>
-                      </div>
-                      
-                      {product.material && (
-                        <div className="product-material">
-                          <span className="label">Material:</span>
-                          <span className="value">{product.material}</span>
+
+                      {product.season && (
+                        <div className="absolute top-3 right-3 px-2 py-0.5 rounded-full bg-white/90 border border-slate-200 text-[10px] font-bold text-slate-600 shadow-2xs">
+                          {product.season.replace('_', ' ')}
                         </div>
                       )}
                     </div>
-                    
-                    <div className="product-variants">
-                      <div className="variants-summary">
-                        <span>Available in {product.variants?.length || 0} variants</span>
+
+                    {/* Content Section */}
+                    <div className="p-5 space-y-2.5">
+                      <div>
+                        <p className="text-[11px] font-bold uppercase tracking-wider text-indigo-600 font-display">
+                          {product.brand || 'Atelier'}
+                        </p>
+                        <h4 className="text-base font-bold font-display text-slate-900 mt-0.5 line-clamp-1 group-hover:text-indigo-600 transition-colors">
+                          {product.name}
+                        </h4>
+                        <p className="text-xs text-slate-400 font-mono mt-0.5">{product.sku || 'SKU-00' + product.id}</p>
                       </div>
-                      <div className="variants-preview">
-                        {product.variants?.slice(0, 3).map((variant, index) => (
-                          <span key={index} className="variant-tag">
-                            {variant.sizeDisplayName}/{variant.colorDisplayName}
+
+                      {product.material && (
+                        <p className="text-xs text-slate-500 line-clamp-1 flex items-center gap-1 font-medium">
+                          <Tag className="w-3 h-3 text-slate-400" />
+                          <span>{product.material}</span>
+                        </p>
+                      )}
+
+                      {/* Variant Pills Preview */}
+                      <div className="flex flex-wrap items-center gap-1 pt-1">
+                        {(product.variants || []).slice(0, 4).map((v, idx) => (
+                          <span
+                            key={idx}
+                            className="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-slate-50 border border-slate-200 text-slate-700"
+                          >
+                            {v.size} • {v.color}
                           </span>
                         ))}
-                        {product.variants?.length > 3 && (
-                          <span className="more-variants">+{product.variants.length - 3} more</span>
+                        {totalVariants > 4 && (
+                          <span className="text-[10px] text-slate-400 font-semibold pl-0.5">
+                            +{totalVariants - 4} more
+                          </span>
                         )}
                       </div>
                     </div>
-                    
-                    <div className="product-footer">
-                      <div className="product-price">
-                        <span className="price-label">Starting from</span>
-                        <span className="price-value">₹{product.basePrice}</span>
-                      </div>
-                      
-                      <div className="product-stock">
-                        <span className={`stock-status ${stockStatus.class}`}>
-                          {stockStatus.status}
-                        </span>
-                        <span className="stock-quantity">
-                          {product.totalStock} units total
-                        </span>
-                      </div>
+                  </div>
+
+                  {/* Card Footer: Price & Stock Summary */}
+                  <div className="p-5 pt-3 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between">
+                    <div>
+                      <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wide">
+                        Base Price
+                      </span>
+                      <span className="text-base font-bold font-mono text-slate-900">
+                        ₹{Number(product.basePrice || 0).toLocaleString()}
+                      </span>
                     </div>
-                    
-                    <div className="product-actions">
-                      <button 
-                        className="view-details-btn"
-                        onClick={() => navigate(`/fashion/product/${product.id}`)}
+
+                    <div className="text-right">
+                      <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wide">
+                        Floor Stock
+                      </span>
+                      <span
+                        className={`text-xs font-bold font-mono ${
+                          totalStock === 0 ? 'text-rose-600' : totalStock < 10 ? 'text-amber-600' : 'text-emerald-600'
+                        }`}
                       >
-                        👁️ View Details
-                      </button>
-                      {(userRole === 'ADMIN' || userRole === 'MANAGER') && (
-                        <button 
-                          className="manage-stock-btn"
-                          onClick={() => navigate('/admin/fashion-stock')}
-                        >
-                          📦 Manage Stock
-                        </button>
-                      )}
+                        {totalStock} Units
+                      </span>
                     </div>
                   </div>
                 </div>
               );
-            })
-          )}
-        </div>
+            })}
+          </div>
+        )}
       </div>
-    </div>
+    </AppLayout>
   );
 }
 

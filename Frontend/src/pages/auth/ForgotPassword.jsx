@@ -1,67 +1,55 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { Mail, KeyRound, Lock, ArrowRight, ArrowLeft, Cloud, CheckCircle2, ShieldCheck, Timer } from 'lucide-react';
 import { forgotPassword, verifyOtp, resetPassword } from '../../services/authService';
-import './auth.css';
+import { useToast } from '../../context/ToastContext';
 
 function ForgotPassword() {
   const navigate = useNavigate();
-  const [step, setStep] = useState(1); // 1: Email, 2: OTP, 3: New Password
+  const toast = useToast();
+  const [step, setStep] = useState(1);
   const [email, setEmail] = useState('');
   const [otp, setOtp] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState(false);
   const [otpTimer, setOtpTimer] = useState(0);
-  const [canResendOtp, setCanResendOtp] = useState(false);
 
-  // Timer effect for OTP resend
   useEffect(() => {
     let interval;
     if (otpTimer > 0) {
       interval = setInterval(() => {
-        setOtpTimer(prev => {
-          if (prev <= 1) {
-            setCanResendOtp(true);
-            return 0;
-          }
-          return prev - 1;
-        });
+        setOtpTimer((prev) => (prev <= 1 ? 0 : prev - 1));
       }, 1000);
     }
     return () => clearInterval(interval);
   }, [otpTimer]);
 
+  const formatTimer = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
   const handleEmailSubmit = async (e) => {
     e.preventDefault();
-    setError('');
-
-    // Validation
     if (!email.trim()) {
-      setError('Email address is required');
-      return;
-    }
-
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      setError('Please enter a valid email address');
+      toast.warning('Please enter your email address.');
       return;
     }
 
     setLoading(true);
-
     try {
       const response = await forgotPassword(email);
-      if (response.data.success) {
+      if (response.data?.success) {
+        toast.success(response.data?.message || 'Security OTP sent to your email.');
         setStep(2);
-        setOtpTimer(600); // 10 minutes
-        setCanResendOtp(false);
+        setOtpTimer(600);
       } else {
-        setError(response.data.message || 'Failed to send OTP');
+        toast.error(response.data?.message || 'Failed to dispatch OTP.');
       }
-    } catch (error) {
-      setError(error.message || 'Failed to send OTP. Please try again.');
+    } catch (err) {
+      toast.error(err.response?.data?.message || err.message || 'Error communicating with security service.');
     } finally {
       setLoading(false);
     }
@@ -69,410 +57,280 @@ function ForgotPassword() {
 
   const handleOtpSubmit = async (e) => {
     e.preventDefault();
-    setError('');
-
     if (!otp.trim()) {
-      setError('Please enter the OTP');
-      return;
-    }
-
-    if (otp.length !== 6) {
-      setError('OTP must be 6 digits');
+      toast.warning('Please enter the 6-digit OTP code.');
       return;
     }
 
     setLoading(true);
-
     try {
       const response = await verifyOtp(email, otp);
-      if (response.data.success) {
+      if (response.data?.success) {
+        toast.success(response.data?.message || 'Security code verified.');
         setStep(3);
       } else {
-        setError(response.data.message || 'Invalid OTP');
+        toast.error(response.data?.message || 'Invalid or expired OTP code.');
       }
-    } catch (error) {
-      setError(error.message || 'Failed to verify OTP. Please try again.');
+    } catch (err) {
+      toast.error(err.response?.data?.message || err.message || 'Verification failure.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handlePasswordReset = async (e) => {
+  const handlePasswordSubmit = async (e) => {
     e.preventDefault();
-    setError('');
-
-    // Validation
-    if (!newPassword.trim()) {
-      setError('New password is required');
-      return;
-    }
-
-    if (newPassword.length < 6) {
-      setError('Password must be at least 6 characters long');
+    if (!newPassword || !confirmPassword) {
+      toast.warning('Please complete all password fields.');
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      setError('Passwords do not match');
+      toast.error('Passwords do not match.');
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      toast.warning('Password must be at least 6 characters.');
       return;
     }
 
     setLoading(true);
-
     try {
       const response = await resetPassword(email, otp, newPassword, confirmPassword);
-      if (response.data.success) {
-        setSuccess(true);
+      if (response.data?.success) {
+        toast.success(response.data?.message || 'Password updated successfully! Redirecting to login...', 'Reset Complete');
         setTimeout(() => {
           navigate('/login');
-        }, 3000);
+        }, 1500);
       } else {
-        setError(response.data.message || 'Failed to reset password');
+        toast.error(response.data?.message || 'Failed to reset password.');
       }
-    } catch (error) {
-      setError(error.message || 'Failed to reset password. Please try again.');
+    } catch (err) {
+      toast.error(err.response?.data?.message || err.message || 'Reset failed.');
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleResendOtp = async () => {
-    if (!canResendOtp) return;
-    
-    setError('');
-    setLoading(true);
-
-    try {
-      const response = await forgotPassword(email);
-      if (response.data.success) {
-        setOtpTimer(600); // 10 minutes
-        setCanResendOtp(false);
-        setOtp('');
-      } else {
-        setError(response.data.message || 'Failed to resend OTP');
-      }
-    } catch (error) {
-      setError(error.message || 'Failed to resend OTP. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const formatTime = (seconds) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
   return (
-    <div className="auth-container">
-      {/* LEFT PANEL - Features */}
-      <div className="auth-left">
-        <div className="auth-brand">
-          <div className="brand-icon">🔐</div>
-          <h1>Password Recovery</h1>
-          <p className="brand-tagline">Reset your account password securely with OTP</p>
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
+      <div className="w-full max-w-md bg-white border border-slate-200 rounded-3xl p-8 sm:p-10 shadow-xl space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center text-white">
+              <Cloud className="w-5 h-5" />
+            </div>
+            <div>
+              <span className="text-base font-bold text-slate-900">INVENTRA</span>
+              <span className="text-[10px] text-indigo-600 font-semibold block -mt-0.5">Retail Cloud</span>
+            </div>
+          </div>
+          <Link
+            to="/login"
+            className="text-xs text-slate-500 hover:text-slate-800 flex items-center gap-1 font-semibold"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" /> Sign In
+          </Link>
         </div>
-        
-        <div className="features-list">
-          <div className="feature-item">
-            <span className="feature-icon">📧</span>
-            <span className="feature-text">Email OTP Verification</span>
-          </div>
-          <div className="feature-item">
-            <span className="feature-icon">🔒</span>
-            <span className="feature-text">Secure 6-Digit Code</span>
-          </div>
-          <div className="feature-item">
-            <span className="feature-icon">⏰</span>
-            <span className="feature-text">10-Minute Validity</span>
-          </div>
-          <div className="feature-item">
-            <span className="feature-icon">🛡️</span>
-            <span className="feature-text">Account Protection</span>
-          </div>
-        </div>
-      </div>
 
-      {/* RIGHT PANEL - Form */}
-      <div className="auth-right">
-        <div className="auth-form-wrapper">
-          {success ? (
-            <div className="success-message-card">
-              <div className="success-icon-large">✓</div>
-              <h3>Password Reset Successful!</h3>
-              <p className="success-description">
-                Your password has been successfully reset.
-              </p>
-              <div className="success-instructions">
-                <p>🔐 Your new password is now active</p>
-                <p>🔗 You can now login with your new password</p>
-                <p>📧 A confirmation email has been sent</p>
+        {/* Steps Tracker */}
+        <div className="flex items-center justify-between px-2">
+          {['Identify', 'Verify OTP', 'New Key'].map((label, idx) => {
+            const stepNum = idx + 1;
+            const isDone = step > stepNum;
+            const isCurrent = step === stepNum;
+
+            return (
+              <div key={label} className="flex flex-col items-center gap-1">
+                <div
+                  className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
+                    isDone
+                      ? 'bg-emerald-600 text-white'
+                      : isCurrent
+                      ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                      : 'bg-slate-100 text-slate-400 border border-slate-200'
+                  }`}
+                >
+                  {isDone ? <CheckCircle2 className="w-4 h-4" /> : stepNum}
+                </div>
+                <span className="text-[11px] text-slate-500 font-medium">{label}</span>
               </div>
-              <div className="redirect-message">
-                Redirecting to login page in 3 seconds...
+            );
+          })}
+        </div>
+
+        {/* STEP 1: Email */}
+        {step === 1 && (
+          <form onSubmit={handleEmailSubmit} className="space-y-4 pt-1">
+            <div className="space-y-1">
+              <h3 className="text-lg font-bold font-display text-slate-900">Reset Access Key</h3>
+              <p className="text-xs text-slate-500">
+                Enter your registered corporate email to receive a 6-digit OTP code.
+              </p>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold uppercase tracking-wider text-slate-700 font-display">
+                Corporate Email
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                  <Mail className="w-4 h-4" />
+                </div>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="admin@inventra.com"
+                  required
+                  className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-300 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 transition-all shadow-2xs"
+                />
               </div>
             </div>
-          ) : (
-            <>
-              {/* Step Indicator */}
-              <div className="step-indicator">
-                <div className={`step ${step >= 1 ? 'active' : ''}`}>
-                  <span className="step-number">1</span>
-                  <span className="step-label">Email</span>
-                </div>
-                <div className={`step ${step >= 2 ? 'active' : ''}`}>
-                  <span className="step-number">2</span>
-                  <span className="step-label">OTP</span>
-                </div>
-                <div className={`step ${step >= 3 ? 'active' : ''}`}>
-                  <span className="step-number">3</span>
-                  <span className="step-label">New Password</span>
-                </div>
-              </div>
 
-              <div className="auth-header">
-                <h2>
-                  {step === 1 && 'Enter Your Email 📧'}
-                  {step === 2 && 'Verify OTP 🔢'}
-                  {step === 3 && 'Set New Password 🔑'}
-                </h2>
-                <p>
-                  {step === 1 && 'Enter your email to receive a 6-digit OTP'}
-                  {step === 2 && 'Enter the OTP sent to your email'}
-                  {step === 3 && 'Create your new secure password'}
-                </p>
-              </div>
-
-              {error && (
-                <div className="error-banner">
-                  <span className="error-icon">⚠️</span>
-                  <span>{error}</span>
-                </div>
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full py-3 px-4 rounded-xl text-sm font-bold tracking-wide text-white bg-indigo-600 hover:bg-indigo-700 shadow-md shadow-indigo-600/20 flex items-center justify-center gap-2 transition-all active:scale-[0.99] disabled:opacity-50"
+            >
+              {loading ? (
+                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <>
+                  <span>SEND VERIFICATION OTP</span>
+                  <ArrowRight className="w-4 h-4" />
+                </>
               )}
+            </button>
+          </form>
+        )}
 
-              {/* Step 1: Email Input */}
-              {step === 1 && (
-                <form onSubmit={handleEmailSubmit} className="auth-form">
-                  <div className="form-group">
-                    <label htmlFor="email">
-                      <span className="label-icon">📧</span>
-                      Email Address
-                    </label>
-                    <input
-                      type="email"
-                      id="email"
-                      name="email"
-                      value={email}
-                      onChange={(e) => {
-                        setEmail(e.target.value);
-                        setError('');
-                      }}
-                      placeholder="Enter your registered email"
-                      className={`form-input ${error ? 'input-error' : ''}`}
-                      autoComplete="email"
-                      autoFocus
-                    />
-                    <span className="input-hint">
-                      Enter the email address associated with your account
-                    </span>
-                  </div>
+        {/* STEP 2: OTP */}
+        {step === 2 && (
+          <form onSubmit={handleOtpSubmit} className="space-y-4 pt-1">
+            <div className="space-y-1">
+              <h3 className="text-lg font-bold font-display text-slate-900">Enter Security OTP</h3>
+              <p className="text-xs text-slate-500">
+                A 6-digit code has been dispatched to <span className="font-semibold text-slate-800">{email}</span>.
+              </p>
+            </div>
 
-                  <button type="submit" className="btn-submit" disabled={loading}>
-                    {loading ? (
-                      <>
-                        <span className="spinner-small"></span>
-                        Sending OTP...
-                      </>
-                    ) : (
-                      <>
-                        <span>Send OTP</span>
-                        <span className="arrow-icon">→</span>
-                      </>
-                    )}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-700 font-display">
+                  Verification Code
+                </label>
+                {otpTimer > 0 ? (
+                  <span className="text-xs text-indigo-600 font-semibold flex items-center gap-1">
+                    <Timer className="w-3.5 h-3.5" /> {formatTimer(otpTimer)}
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleEmailSubmit}
+                    className="text-xs text-indigo-600 hover:text-indigo-800 font-bold"
+                  >
+                    Resend Code
                   </button>
-                </form>
-              )}
-
-              {/* Step 2: OTP Input */}
-              {step === 2 && (
-                <form onSubmit={handleOtpSubmit} className="auth-form">
-                  <div className="form-group">
-                    <label htmlFor="otp">
-                      <span className="label-icon">🔢</span>
-                      Enter OTP
-                    </label>
-                    <input
-                      type="text"
-                      id="otp"
-                      name="otp"
-                      value={otp}
-                      onChange={(e) => {
-                        const value = e.target.value.replace(/\D/g, '').slice(0, 6);
-                        setOtp(value);
-                        setError('');
-                      }}
-                      placeholder="Enter 6-digit OTP"
-                      className={`form-input otp-input ${error ? 'input-error' : ''}`}
-                      maxLength="6"
-                      autoComplete="one-time-code"
-                      autoFocus
-                    />
-                    <span className="input-hint">
-                      OTP sent to {email}
-                      {otpTimer > 0 && (
-                        <span className="timer"> • Expires in {formatTime(otpTimer)}</span>
-                      )}
-                    </span>
-                  </div>
-
-                  <button type="submit" className="btn-submit" disabled={loading}>
-                    {loading ? (
-                      <>
-                        <span className="spinner-small"></span>
-                        Verifying...
-                      </>
-                    ) : (
-                      <>
-                        <span>Verify OTP</span>
-                        <span className="arrow-icon">→</span>
-                      </>
-                    )}
-                  </button>
-
-                  <div className="resend-section">
-                    <span>Didn't receive the OTP?</span>
-                    <button
-                      type="button"
-                      className={`resend-btn ${canResendOtp ? 'active' : 'disabled'}`}
-                      onClick={handleResendOtp}
-                      disabled={!canResendOtp || loading}
-                    >
-                      {canResendOtp ? 'Resend OTP' : `Resend in ${formatTime(otpTimer)}`}
-                    </button>
-                  </div>
-                </form>
-              )}
-
-              {/* Step 3: New Password */}
-              {step === 3 && (
-                <form onSubmit={handlePasswordReset} className="auth-form">
-                  <div className="form-group">
-                    <label htmlFor="newPassword">
-                      <span className="label-icon">🔒</span>
-                      New Password
-                    </label>
-                    <input
-                      type="password"
-                      id="newPassword"
-                      name="newPassword"
-                      value={newPassword}
-                      onChange={(e) => {
-                        setNewPassword(e.target.value);
-                        setError('');
-                      }}
-                      placeholder="Enter new password"
-                      className={`form-input ${error ? 'input-error' : ''}`}
-                      autoComplete="new-password"
-                      autoFocus
-                    />
-                    <span className="input-hint">
-                      Password must be at least 6 characters long
-                    </span>
-                  </div>
-
-                  <div className="form-group">
-                    <label htmlFor="confirmPassword">
-                      <span className="label-icon">🔒</span>
-                      Confirm Password
-                    </label>
-                    <input
-                      type="password"
-                      id="confirmPassword"
-                      name="confirmPassword"
-                      value={confirmPassword}
-                      onChange={(e) => {
-                        setConfirmPassword(e.target.value);
-                        setError('');
-                      }}
-                      placeholder="Confirm new password"
-                      className={`form-input ${error ? 'input-error' : ''}`}
-                      autoComplete="new-password"
-                    />
-                    <span className="input-hint">
-                      Re-enter your new password to confirm
-                    </span>
-                  </div>
-
-                  <button type="submit" className="btn-submit" disabled={loading}>
-                    {loading ? (
-                      <>
-                        <span className="spinner-small"></span>
-                        Resetting Password...
-                      </>
-                    ) : (
-                      <>
-                        <span>Reset Password</span>
-                        <span className="arrow-icon">→</span>
-                      </>
-                    )}
-                  </button>
-                </form>
-              )}
-
-              <div className="auth-divider">
-                <span>OR</span>
+                )}
               </div>
-
-              <div className="help-section">
-                <div className="help-card">
-                  <div className="help-icon">💡</div>
-                  <div className="help-content">
-                    <h4>Need Help?</h4>
-                    <p>
-                      {step === 1 && 'Make sure to enter the email address you used to register'}
-                      {step === 2 && 'Check your email inbox and spam folder for the OTP'}
-                      {step === 3 && 'Choose a strong password with at least 6 characters'}
-                    </p>
-                    <ul className="help-list">
-                      {step === 1 && (
-                        <>
-                          <li>Check your email address spelling</li>
-                          <li>Ensure you have an active account</li>
-                          <li>Contact support if issues persist</li>
-                        </>
-                      )}
-                      {step === 2 && (
-                        <>
-                          <li>OTP is valid for 10 minutes only</li>
-                          <li>You have 3 attempts to enter correct OTP</li>
-                          <li>Request new OTP if expired</li>
-                        </>
-                      )}
-                      {step === 3 && (
-                        <>
-                          <li>Use a mix of letters and numbers</li>
-                          <li>Avoid common passwords</li>
-                          <li>Keep your password secure</li>
-                        </>
-                      )}
-                    </ul>
-                  </div>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                  <KeyRound className="w-4 h-4" />
                 </div>
+                <input
+                  type="text"
+                  maxLength={6}
+                  value={otp}
+                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
+                  placeholder="123456"
+                  required
+                  className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-300 rounded-xl text-center text-lg tracking-widest font-mono text-slate-900 focus:outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 transition-all shadow-2xs"
+                />
               </div>
+            </div>
 
-              <div className="auth-switch">
-                <span>Remember your password?</span>
-                <Link to="/login" className="switch-link">Back to Login →</Link>
-              </div>
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full py-3 px-4 rounded-xl text-sm font-bold tracking-wide text-white bg-indigo-600 hover:bg-indigo-700 shadow-md shadow-indigo-600/20 flex items-center justify-center gap-2 transition-all active:scale-[0.99] disabled:opacity-50"
+            >
+              {loading ? (
+                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <>
+                  <span>VALIDATE CODE</span>
+                  <ArrowRight className="w-4 h-4" />
+                </>
+              )}
+            </button>
+          </form>
+        )}
 
-              <div className="auth-switch" style={{ marginTop: '10px' }}>
-                <span>Don't have an account?</span>
-                <Link to="/register" className="switch-link">Create Account →</Link>
+        {/* STEP 3: Password */}
+        {step === 3 && (
+          <form onSubmit={handlePasswordSubmit} className="space-y-4 pt-1">
+            <div className="space-y-1">
+              <h3 className="text-lg font-bold font-display text-slate-900">Define New Key</h3>
+              <p className="text-xs text-slate-500">Choose a new password for your account.</p>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold uppercase tracking-wider text-slate-700 font-display">
+                New Password
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                  <Lock className="w-4 h-4" />
+                </div>
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="••••••••••••"
+                  required
+                  className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-300 rounded-xl text-sm text-slate-900 focus:outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 transition-all shadow-2xs"
+                />
               </div>
-            </>
-          )}
-        </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold uppercase tracking-wider text-slate-700 font-display">
+                Confirm New Password
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                  <Lock className="w-4 h-4" />
+                </div>
+                <input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="••••••••••••"
+                  required
+                  className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-300 rounded-xl text-sm text-slate-900 focus:outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 transition-all shadow-2xs"
+                />
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full py-3 px-4 rounded-xl text-sm font-bold tracking-wide text-white bg-indigo-600 hover:bg-indigo-700 shadow-md shadow-indigo-600/20 flex items-center justify-center gap-2 transition-all active:scale-[0.99] disabled:opacity-50"
+            >
+              {loading ? (
+                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <>
+                  <span>CONFIRM & UPDATE PASSWORD</span>
+                  <ShieldCheck className="w-4 h-4" />
+                </>
+              )}
+            </button>
+          </form>
+        )}
       </div>
     </div>
   );

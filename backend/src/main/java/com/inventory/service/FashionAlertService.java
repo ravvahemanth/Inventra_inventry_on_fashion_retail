@@ -77,6 +77,13 @@ public class FashionAlertService {
         }
     }
 
+    // Get ALL fashion alerts (active + resolved)
+    public List<FashionAlert> getAllAlerts() {
+        return fashionAlertRepository.findAll().stream()
+                .sorted((a1, a2) -> a2.getCreatedAt().compareTo(a1.getCreatedAt()))
+                .toList();
+    }
+
     // Get all active fashion alerts
     public List<FashionAlert> getAllActiveAlerts() {
         return fashionAlertRepository.findByStatusOrderByCreatedAtDesc(FashionAlert.AlertStatus.ACTIVE);
@@ -87,6 +94,14 @@ public class FashionAlertService {
         return fashionAlertRepository.findTop10ByOrderByCreatedAtDesc();
     }
 
+    // Get alerts by type
+    public List<FashionAlert> getAlertsByType(FashionAlert.AlertType type) {
+        return fashionAlertRepository.findAll().stream()
+                .filter(alert -> alert.getType() == type)
+                .sorted((a1, a2) -> a2.getCreatedAt().compareTo(a1.getCreatedAt()))
+                .toList();
+    }
+
     // Resolve a specific alert
     public void resolveAlert(Long alertId) {
         FashionAlert alert = fashionAlertRepository.findById(alertId)
@@ -94,5 +109,26 @@ public class FashionAlertService {
         
         alert.setStatus(FashionAlert.AlertStatus.RESOLVED);
         fashionAlertRepository.save(alert);
+        System.out.println("✅ Fashion alert " + alertId + " resolved");
+    }
+
+    // Delete a specific alert
+    public void deleteAlert(Long alertId) {
+        if (!fashionAlertRepository.existsById(alertId)) {
+            throw new RuntimeException("Fashion alert not found with ID: " + alertId);
+        }
+        fashionAlertRepository.deleteById(alertId);
+        System.out.println("🗑️ Fashion alert " + alertId + " deleted");
+    }
+
+    // Mark all active alerts as resolved
+    public void markAllAlertsAsResolved() {
+        List<FashionAlert> activeAlerts = fashionAlertRepository.findByStatusOrderByCreatedAtDesc(FashionAlert.AlertStatus.ACTIVE);
+        
+        for (FashionAlert alert : activeAlerts) {
+            alert.setStatus(FashionAlert.AlertStatus.RESOLVED);
+            fashionAlertRepository.save(alert);
+        }
+        System.out.println("✅ Marked " + activeAlerts.size() + " fashion alerts as resolved");
     }
 }

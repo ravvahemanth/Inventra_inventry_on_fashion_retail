@@ -32,14 +32,32 @@ public class FashionProductService {
     private FashionAlertService fashionAlertService;
     
     /**
-     * Get all fashion products
+     * Get all fashion products with variants eagerly loaded
      */
+    @Transactional(readOnly = true)
     public List<FashionProductResponse> getAllProducts() {
-        return fashionProductRepository.findAllByOrderByCreatedAtDesc()
-                .stream()
+        System.out.println("🔍 Fetching all fashion products with variants...");
+        List<FashionProduct> products = fashionProductRepository.findAllByOrderByCreatedAtDesc();
+        
+        // Force load variants for each product to avoid lazy loading issues
+        products.forEach(product -> {
+            product.getVariants().size(); // Force lazy loading
+            int totalStock = product.getTotalStock();
+            boolean lowStock = product.isLowStock();
+            boolean outOfStock = product.isOutOfStock();
+            System.out.println("  - " + product.getName() + 
+                             " | Total Stock: " + totalStock + 
+                             " | Low Stock: " + lowStock + 
+                             " | Out of Stock: " + outOfStock);
+        });
+        
+        System.out.println("✅ Loaded " + products.size() + " products with variants");
+        
+        return products.stream()
                 .map(FashionProductResponse::new)
                 .collect(Collectors.toList());
     }
+
     
     /**
      * Get product by ID
@@ -234,8 +252,26 @@ public class FashionProductService {
      * Get low stock products
      */
     public List<FashionProductResponse> getLowStockProducts() {
-        return fashionProductRepository.findLowStockProducts()
-                .stream()
+        System.out.println("🔍 Fetching low stock products...");
+        List<FashionProduct> lowStockProducts = fashionProductRepository.findLowStockProducts();
+        System.out.println("📊 Database query returned " + lowStockProducts.size() + " low stock products");
+        
+        // Debug: Print each low stock product
+        for (FashionProduct product : lowStockProducts) {
+            System.out.println("  - " + product.getName() + " (Total Stock: " + product.getTotalStock() + 
+                             ", Min Stock: " + product.getTotalMinStock() + ")");
+            if (product.getVariants() != null) {
+                for (ProductVariant variant : product.getVariants()) {
+                    if (variant.getQuantity() > 0 && variant.getQuantity() <= variant.getMinStockLevel()) {
+                        System.out.println("    ⚠️ Low variant: " + variant.getSizeDisplayName() + "/" + 
+                                         variant.getColorDisplayName() + " - Qty: " + variant.getQuantity() + 
+                                         " (Min: " + variant.getMinStockLevel() + ")");
+                    }
+                }
+            }
+        }
+        
+        return lowStockProducts.stream()
                 .map(FashionProductResponse::new)
                 .collect(Collectors.toList());
     }
@@ -244,8 +280,16 @@ public class FashionProductService {
      * Get out of stock products
      */
     public List<FashionProductResponse> getOutOfStockProducts() {
-        return fashionProductRepository.findOutOfStockProducts()
-                .stream()
+        System.out.println("🔍 Fetching out of stock products...");
+        List<FashionProduct> outOfStockProducts = fashionProductRepository.findOutOfStockProducts();
+        System.out.println("📊 Database query returned " + outOfStockProducts.size() + " out of stock products");
+        
+        // Debug: Print each out of stock product
+        for (FashionProduct product : outOfStockProducts) {
+            System.out.println("  - " + product.getName() + " (Total Stock: " + product.getTotalStock() + ")");
+        }
+        
+        return outOfStockProducts.stream()
                 .map(FashionProductResponse::new)
                 .collect(Collectors.toList());
     }

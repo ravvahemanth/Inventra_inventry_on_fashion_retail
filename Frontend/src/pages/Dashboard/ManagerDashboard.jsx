@@ -1,419 +1,225 @@
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useEffect, useState } from 'react';
-import { logout, getUserRole } from '../../services/authService';
+import {
+  Boxes,
+  BellRing,
+  Shirt,
+  AlertTriangle,
+  ArrowRight,
+  TrendingUp,
+  CheckCircle2,
+  Sparkles,
+} from 'lucide-react';
+import AppLayout from '../../components/layout/AppLayout';
+import StatCard from '../../components/ui/StatCard';
+import StatusBadge from '../../components/ui/StatusBadge';
 import axiosInstance from '../../utils/axiosConfig';
-import './Dashboard.css';
 
 function ManagerDashboard() {
   const navigate = useNavigate();
-  const userEmail = localStorage.getItem('userEmail') || 'Manager';
-  const username = localStorage.getItem('username') || 'Manager';
-  const userRole = getUserRole();
-  const [alertCount, setAlertCount] = useState(0);
-  const [showSidebar, setShowSidebar] = useState(false);
   const [dashboardData, setDashboardData] = useState({
     products: [],
     recentTransactions: [],
     alerts: [],
-    stats: {}
+    stats: {},
   });
+  const [fashionProducts, setFashionProducts] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (userRole !== 'MANAGER') {
-      navigate('/dashboard');
-      return;
-    }
     loadManagerData();
-  }, [userRole, navigate]);
+  }, []);
 
   const loadManagerData = async () => {
     try {
-      console.log('🔄 Loading manager dashboard data...');
-      const response = await axiosInstance.get('/dashboard/manager');
-      console.log('📊 Manager dashboard response:', response.data);
-      
-      setDashboardData(response.data);
-      
-      // ✅ FIX: Use only active alerts for count
-      const activeAlerts = response.data.alerts || [];
-      const activeAlertCount = activeAlerts.filter(alert => alert.status === 'ACTIVE').length;
-      
-      console.log(`🔔 Alert count: ${activeAlertCount} active alerts out of ${activeAlerts.length} total`);
-      setAlertCount(activeAlertCount);
-    } catch (error) {
-      console.error('❌ Error loading manager data:', error);
+      setLoading(true);
+      const [dashRes, fashionRes] = await Promise.allSettled([
+        axiosInstance.get('/dashboard/manager'),
+        axiosInstance.get('/fashion-products'),
+      ]);
+
+      if (dashRes.status === 'fulfilled') {
+        setDashboardData(dashRes.value.data || {});
+      }
+      if (fashionRes.status === 'fulfilled') {
+        setFashionProducts(fashionRes.value.data || []);
+      }
+    } catch (err) {
+      console.error('Error loading manager dashboard:', err);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleLogout = () => {
-    if (window.confirm('Are you sure you want to logout?')) {
-      logout();
-      navigate('/login');
-    }
-  };
+  const activeAlerts = (dashboardData.alerts || []).filter((a) => a.status === 'ACTIVE');
+  const alertCount = activeAlerts.length;
 
-  const handleStockUpdate = async (productId, type, quantity, reason) => {
-    try {
-      await axiosInstance.post('/stock-transactions', {
-        productId,
-        type,
-        quantity,
-        reason
-      });
-      loadManagerData(); // Refresh data
-      alert(`Stock ${type === 'STOCK_IN' ? 'added' : 'removed'} successfully!`);
-    } catch (error) {
-      console.error('Error updating stock:', error);
-      alert('Error updating stock: ' + (error.response?.data?.message || error.message));
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
-      </div>
-    );
-  }
+  const lowStockCount = fashionProducts.filter((p) => p.lowStock).length;
+  const outOfStockCount = fashionProducts.filter((p) => p.outOfStock).length;
 
   return (
-    <div className="dashboard-container">
-      {/* Mobile Sidebar */}
-      <div className={`mobile-sidebar ${showSidebar ? 'active' : ''}`}>
-        <div className="sidebar-overlay" onClick={() => setShowSidebar(false)}></div>
-        <div className="sidebar-content">
-          <div className="sidebar-header">
-            <div className="logo">
-              <span className="logo-icon">📦</span>
-              <h2>Inventra</h2>
+    <AppLayout
+      title="Store Operations Dashboard"
+      subtitle="Smart Fashion Retail Cloud • Floor Stock Level Management"
+      alertCount={alertCount}
+    >
+      <div className="space-y-6">
+        {/* Metric Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
+          <StatCard
+            title="Total Collection"
+            value={fashionProducts.length}
+            subtitle="Active Fashion Styles"
+            icon={Shirt}
+            accentColor="indigo"
+          />
+          <StatCard
+            title="Active Risk Incidents"
+            value={alertCount}
+            subtitle="Immediate Floor Attention"
+            icon={BellRing}
+            accentColor={alertCount > 0 ? 'rose' : 'emerald'}
+          />
+          <StatCard
+            title="Low Stock Items"
+            value={lowStockCount}
+            subtitle="Approaching Reorder Limit"
+            icon={AlertTriangle}
+            accentColor={lowStockCount > 0 ? 'amber' : 'emerald'}
+          />
+          <StatCard
+            title="Depleted Out of Stock"
+            value={outOfStockCount}
+            subtitle="Zero Available Units"
+            icon={Boxes}
+            accentColor={outOfStockCount > 0 ? 'rose' : 'emerald'}
+          />
+        </div>
+
+        {/* Quick Operations Callout */}
+        <div className="flex flex-wrap items-center justify-between gap-4 p-4 rounded-2xl bg-indigo-50/70 border border-indigo-100 shadow-2xs">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-indigo-600 text-white">
+              <Sparkles className="w-5 h-5" />
             </div>
-            <button className="close-sidebar" onClick={() => setShowSidebar(false)}>✕</button>
+            <div>
+              <h4 className="text-sm font-bold text-slate-900 font-display">Floor Inventory Adjustments</h4>
+              <p className="text-xs text-slate-600 font-medium">Record restock shipments or adjust inventory balances directly</p>
+            </div>
+          </div>
+          <button
+            onClick={() => navigate('/manager/stock')}
+            className="px-4 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition-all shadow-sm flex items-center gap-1.5"
+          >
+            <Boxes className="w-4 h-4" />
+            <span>Launch Stock Control Ledger</span>
+          </button>
+        </div>
+
+        {/* Two Column Section */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Fashion Inventory Health (2 cols) */}
+          <div className="lg:col-span-2 space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-bold font-display text-slate-900">Inventory Status Overview</h3>
+                <p className="text-xs text-slate-500 font-medium">Apparel and accessories requiring floor action</p>
+              </div>
+              <button
+                onClick={() => navigate('/fashion')}
+                className="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1"
+              >
+                <span>Browse Catalog</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            <div className="cloud-card overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase font-bold font-display tracking-wider">
+                    <tr>
+                      <th className="px-5 py-3.5">Product</th>
+                      <th className="px-4 py-3.5">Brand</th>
+                      <th className="px-4 py-3.5">Category</th>
+                      <th className="px-4 py-3.5">Status</th>
+                      <th className="px-4 py-3.5 text-right">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-slate-700">
+                    {fashionProducts.slice(0, 6).map((item) => (
+                      <tr key={item.id} className="hover:bg-slate-50/80 transition-colors">
+                        <td className="px-5 py-3.5 font-medium text-slate-900">
+                          <p className="font-bold text-slate-900">{item.name}</p>
+                          <p className="text-[11px] text-slate-400 font-mono">{item.sku || 'SKU-00' + item.id}</p>
+                        </td>
+                        <td className="px-4 py-3.5 font-semibold text-slate-800">{item.brand || 'Atelier'}</td>
+                        <td className="px-4 py-3.5 text-slate-500">{item.category?.replace('_', ' ')}</td>
+                        <td className="px-4 py-3.5">
+                          <StatusBadge
+                            status={item.outOfStock ? 'Out of Stock' : item.lowStock ? 'Low Stock' : 'In Stock'}
+                          />
+                        </td>
+                        <td className="px-4 py-3.5 text-right">
+                          <button
+                            onClick={() => navigate('/manager/stock')}
+                            className="px-2.5 py-1 text-xs font-bold rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 transition-colors"
+                          >
+                            Update Stock
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
 
-          <div className="role-indicator-mobile" style={{ backgroundColor: '#667eea' }}>
-            <span>👔</span>
-            <span className="role-text">Manager</span>
-          </div>
+          {/* Right Column: Active Risks */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold font-display text-slate-900 flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-rose-600" /> Active Stock Alerts
+              </h3>
+              <button
+                onClick={() => navigate('/alerts')}
+                className="text-xs text-indigo-600 hover:text-indigo-800 font-semibold"
+              >
+                View All →
+              </button>
+            </div>
 
-          <nav className="sidebar-nav">
-            <a href="/dashboard" className="nav-item active">
-              <span className="nav-icon">📊</span>
-              <span>Dashboard</span>
-            </a>
-            <a href="/fashion" className="nav-item">
-              <span className="nav-icon">👗</span>
-              <span>Fashion Collection</span>
-            </a>
-            <a href="/manager/stock" className="nav-item">
-              <span className="nav-icon">📦</span>
-              <span>Manage Inventory</span>
-            </a>
-            <a href="/transactions" className="nav-item">
-              <span className="nav-icon">📋</span>
-              <span>Transaction History</span>
-            </a>
-            <a href="/manager/alerts" className="nav-item">
-              <span className="nav-icon">🔔</span>
-              <span>Stock Alerts</span>
-              {alertCount > 0 && (
-                <span className="alert-badge-nav">{alertCount}</span>
+            <div className="cloud-card p-4 space-y-3">
+              {activeAlerts.length === 0 ? (
+                <div className="py-8 text-center text-slate-500 space-y-1">
+                  <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto" />
+                  <p className="text-xs font-bold text-slate-800">Zero Inventory Risks</p>
+                  <p className="text-[11px] text-slate-500">All sizes and colors are currently stocked above threshold.</p>
+                </div>
+              ) : (
+                activeAlerts.slice(0, 5).map((alert) => (
+                  <div
+                    key={alert.id}
+                    className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-start gap-3 hover:border-slate-300"
+                  >
+                    <div className="p-1.5 rounded-lg bg-rose-50 text-rose-600 border border-rose-100 shrink-0 mt-0.5">
+                      <AlertTriangle className="w-4 h-4" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-bold text-slate-900 truncate">{alert.productName || alert.message}</p>
+                      <p className="text-[11px] text-slate-500 mt-0.5">
+                        Min Threshold: {alert.threshold || 5} • Available: <strong className="text-rose-600">{alert.currentStock || 0}</strong>
+                      </p>
+                    </div>
+                  </div>
+                ))
               )}
-            </a>
-          </nav>
-
-          <div className="sidebar-footer">
-            <div className="user-info-sidebar">
-              <div className="user-avatar-large">{username.charAt(0).toUpperCase()}</div>
-              <div className="user-details">
-                <p className="user-name-sidebar">{username}</p>
-                <p className="user-email-sidebar">{userEmail}</p>
-              </div>
             </div>
-            <button className="logout-btn-sidebar" onClick={handleLogout}>
-              <span className="nav-icon">🚪</span>
-              <span>Logout</span>
-            </button>
           </div>
         </div>
       </div>
-
-      {/* Main Content */}
-      <div className="main-content">
-        {/* Top Bar */}
-        <div className="topbar">
-          <div className="topbar-left">
-            <button className="menu-btn" onClick={() => setShowSidebar(true)}>
-              ☰
-            </button>
-            <div className="page-title-dash">
-              <h1>👗 Fashion Retail Manager</h1>
-              <p className="topbar-subtitle">Manage apparel, footwear & accessories inventory</p>
-            </div>
-          </div>
-          <div className="user-profile">
-            <div className="notification-bell" onClick={() => navigate('/alerts')}>
-              🔔
-              {alertCount > 0 && <span className="notification-count">{alertCount}</span>}
-            </div>
-            <div className="user-avatar">{username.charAt(0).toUpperCase()}</div>
-            <div className="user-info">
-              <span className="user-name">{username}</span>
-              <span className="user-role" style={{ color: '#667eea' }}>
-                👔 Manager
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Stock Alert Banner */}
-        {alertCount > 0 && (
-          <div className="alert-banner" onClick={() => navigate('/alerts')}>
-            <div className="banner-icon">⚠️</div>
-            <div className="banner-content">
-              <h4>⚡ Fashion Alert!</h4>
-              <p>You have {alertCount} active stock alert{alertCount > 1 ? 's' : ''} requiring immediate attention. Check fashion inventory levels now.</p>
-            </div>
-            <button className="banner-btn">View Stock Alerts →</button>
-          </div>
-        )}
-
-        {/* Fashion Inventory Stats */}
-        <div className="dashboard-stats">
-          <div className="stat-card">
-            <div className="stat-icon blue">👗</div>
-            <div className="stat-details">
-              <h3>Fashion Items</h3>
-              <p className="stat-number">{dashboardData.stats.totalProducts || 0}</p>
-              <span className="stat-change positive">✓ Active collection</span>
-            </div>
-          </div>
-
-          <div className="stat-card">
-            <div className="stat-icon orange">⚠️</div>
-            <div className="stat-details">
-              <h3>Low Stock</h3>
-              <p className="stat-number">{dashboardData.stats.lowStockProducts || 0}</p>
-              <span className="stat-change negative">⚠ Needs restocking</span>
-            </div>
-          </div>
-
-          <div className="stat-card">
-            <div className="stat-icon red">❌</div>
-            <div className="stat-details">
-              <h3>Out of Stock</h3>
-              <p className="stat-number">{dashboardData.stats.outOfStockProducts || 0}</p>
-              <span className="stat-change negative">❌ Immediate action needed</span>
-            </div>
-          </div>
-
-          <div className="stat-card">
-            <div className="stat-icon green">🔔</div>
-            <div className="stat-details">
-              <h3>Active Alerts</h3>
-              <p className="stat-number">{dashboardData.stats.activeAlerts || 0}</p>
-              <span className="stat-change positive">✓ Monitoring</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Fashion Products Display - Main Dashboard */}
-        <div className="recent-activity">
-          <div style={{ 
-            display: 'flex', 
-            justifyContent: 'space-between', 
-            alignItems: 'center', 
-            marginBottom: '20px',
-            flexWrap: 'wrap',
-            gap: '10px'
-          }}>
-            <h2 style={{ margin: '0', fontSize: '20px', fontWeight: '700', color: '#1a202c' }}>
-              👗 Fashion Collection ({dashboardData.products?.length || 0})
-            </h2>
-            <button 
-              className="action-btn action-btn-primary"
-              onClick={() => navigate('/fashion')}
-              style={{ 
-                padding: '8px 14px', 
-                fontSize: '13px',
-                fontWeight: '600',
-                background: 'linear-gradient(135deg, #667eea, #764ba2)',
-                color: 'white',
-                border: 'none',
-                borderRadius: '7px',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '5px',
-                transition: 'all 0.3s',
-                whiteSpace: 'nowrap',
-                minWidth: 'auto',
-                height: 'auto'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = 'translateY(-1px)';
-                e.currentTarget.style.boxShadow = '0 3px 10px rgba(102, 126, 234, 0.3)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = 'none';
-              }}
-            >
-              👗 View Collection
-            </button>
-          </div>
-          <div className="table-container">
-            <table className="products-table">
-              <thead>
-                <tr>
-                  <th>Product Name</th>
-                  <th>Brand</th>
-                  <th>Category</th>
-                  <th>Season</th>
-                  <th>Total Stock</th>
-                  <th>Status</th>
-                  <th>Base Price</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(dashboardData.products || []).map((product) => (
-                  <tr key={product.id}>
-                    <td>
-                      <div className="product-info">
-                        <strong>{product.name}</strong>
-                        {product.description && <div className="product-desc">{product.description}</div>}
-                      </div>
-                    </td>
-                    <td>
-                      <span className="brand-badge">{product.brand || 'N/A'}</span>
-                    </td>
-                    <td>
-                      <span className="category-badge">{product.categoryDisplayName || product.category}</span>
-                    </td>
-                    <td>
-                      <span className="season-badge">{product.seasonDisplayName || product.season}</span>
-                    </td>
-                    <td>
-                      <span className={`stock-quantity ${
-                        product.totalStock === 0 ? 'out-of-stock' : 
-                        product.lowStock ? 'low-stock' : 'in-stock'
-                      }`}>
-                        {product.totalStock || product.quantity || 0}
-                      </span>
-                    </td>
-                    <td>
-                      <span className={`status-badge ${
-                        (product.totalStock || product.quantity) === 0 ? 'status-out' : 
-                        product.lowStock ? 'status-low' : 'status-good'
-                      }`}>
-                        {(product.totalStock || product.quantity) === 0 ? 'Out of Stock' : 
-                         product.lowStock ? 'Low Stock' : 'In Stock'}
-                      </span>
-                    </td>
-                    <td>₹{product.basePrice || product.price}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {/* Recent Transactions */}
-        <div className="recent-activity">
-          <div style={{ 
-            display: 'flex', 
-            justifyContent: 'space-between', 
-            alignItems: 'center', 
-            marginBottom: '20px',
-            flexWrap: 'wrap',
-            gap: '10px'
-          }}>
-            <h2 style={{ margin: '0', fontSize: '20px', fontWeight: '700', color: '#1a202c' }}>
-              📋 Recent Stock Movements
-            </h2>
-            <button 
-              className="action-btn action-btn-primary"
-              onClick={() => navigate('/transactions')}
-              style={{ 
-                padding: '8px 14px', 
-                fontSize: '13px',
-                fontWeight: '600',
-                background: 'linear-gradient(135deg, #4299e1, #3182ce)',
-                color: 'white',
-                border: 'none',
-                borderRadius: '7px',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '5px',
-                transition: 'all 0.3s',
-                whiteSpace: 'nowrap',
-                minWidth: 'auto',
-                height: 'auto'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = 'translateY(-1px)';
-                e.currentTarget.style.boxShadow = '0 3px 10px rgba(66, 153, 225, 0.3)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = 'none';
-              }}
-            >
-              📋 View All
-            </button>
-          </div>
-          <div className="activity-list">
-            {dashboardData.recentTransactions.map((transaction, index) => (
-              <div key={index} className="activity-item">
-                <div className={`activity-icon ${transaction.type === 'STOCK_IN' ? 'green' : 'orange'}`}>
-                  {transaction.type === 'STOCK_IN' ? '⬆️' : '⬇️'}
-                </div>
-                <div className="activity-details">
-                  <p className="activity-text">
-                    <strong>{transaction.productName}</strong> - {transaction.type === 'STOCK_IN' ? 'Added' : 'Removed'} {transaction.quantity} units
-                  </p>
-                  <span className="activity-time">
-                    By {transaction.username} • {transaction.reason}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Active Alerts */}
-        {dashboardData.alerts && dashboardData.alerts.filter(alert => alert.status === 'ACTIVE').length > 0 && (
-          <div className="recent-activity">
-            <h2>🔔 Active Stock Alerts</h2>
-            <div className="activity-list">
-              {dashboardData.alerts
-                .filter(alert => alert.status === 'ACTIVE')
-                .map((alert, index) => (
-                <div key={index} className="activity-item">
-                  <div className={`activity-icon ${alert.type === 'OUT_OF_STOCK' ? 'red' : 'orange'}`}>
-                    {alert.type === 'OUT_OF_STOCK' ? '🚨' : '⚠️'}
-                  </div>
-                  <div className="activity-details">
-                    <p className="activity-text">
-                      <strong>{alert.productName || 'Unknown Product'}</strong> - {alert.message}
-                    </p>
-                    <span className="activity-time">
-                      {alert.type} Alert • {new Date(alert.createdAt).toLocaleDateString()}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <button className="action-btn action-btn-warning" onClick={() => navigate('/alerts')}>
-              View All Alerts →
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
+    </AppLayout>
   );
 }
 

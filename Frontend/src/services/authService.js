@@ -48,6 +48,25 @@ export const login = async (credentials) => {
   }
 };
 
+export const firebaseLogin = async (firebaseUserData) => {
+  try {
+    const response = await axios.post(`${API_URL}/firebase-login`, firebaseUserData);
+
+    if (response.data.token) {
+      localStorage.setItem('token', response.data.token);
+      localStorage.setItem('userEmail', response.data.user.email);
+      localStorage.setItem('userRole', response.data.user.role.toUpperCase());
+      localStorage.setItem('username', response.data.user.username);
+      
+      setAuthToken(response.data.token);
+    }
+
+    return response;
+  } catch (error) {
+    throw error.response?.data || error;
+  }
+};
+
 export const register = async (userData) => {
   try {
     const response = await axios.post(`${API_URL}/register`, {

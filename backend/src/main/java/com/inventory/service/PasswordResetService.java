@@ -48,8 +48,7 @@ public class PasswordResetService {
             // Check if user exists
             Optional<User> userOpt = userRepository.findByEmail(email);
             if (!userOpt.isPresent()) {
-                // For security, don't reveal if email exists or not
-                return ApiResponse.success("If the email exists in our system, an OTP has been sent.");
+                return ApiResponse.error("This email is not registered in our system. Please check your email or register first.");
             }
             
             User user = userOpt.get();
@@ -75,33 +74,44 @@ public class PasswordResetService {
             PasswordResetOtp otpEntity = new PasswordResetOtp(email, otp, expiresAt);
             otpRepository.save(otpEntity);
             
+            boolean mockUsed = false;
+            
             // Send email
             try {
                 if (useMockEmail && mockEmailService != null) {
                     System.out.println("📧 Using Mock Email Service (Development Mode)");
                     mockEmailService.sendOtpEmail(email, otp, user.getUsername());
+                    mockUsed = true;
                 } else if (emailService != null) {
                     System.out.println("📧 Using Real Email Service (Production Mode)");
                     emailService.sendOtpEmail(email, otp, user.getUsername());
+                } else if (mockEmailService != null) {
+                    mockEmailService.sendOtpEmail(email, otp, user.getUsername());
+                    mockUsed = true;
                 } else {
                     throw new RuntimeException("No email service available");
                 }
             } catch (Exception emailError) {
                 System.err.println("❌ Email sending failed: " + emailError.getMessage());
-                // If real email fails, try mock as fallback
-                if (!useMockEmail && mockEmailService != null) {
+                // Fallback to Mock Email Service if real email fails
+                if (mockEmailService != null) {
                     System.out.println("📧 Falling back to Mock Email Service");
                     mockEmailService.sendOtpEmail(email, otp, user.getUsername());
+                    mockUsed = true;
                 } else {
-                    // Clean up the OTP if email sending fails
+                    // Clean up the OTP if email sending fails completely
                     otpRepository.delete(otpEntity);
-                    return ApiResponse.error("Failed to send OTP email. Please check your email configuration or try again later.");
+                    return ApiResponse.error("Failed to send OTP email. Please check your SMTP configuration or try again later.");
                 }
             }
             
             System.out.println("🔐 OTP generated for " + email + ": " + otp + " (expires at " + expiresAt + ")");
             
-            return ApiResponse.success("OTP has been sent to your email address. Please check your inbox.");
+            String successMsg = "OTP has been sent to your email address.";
+            if (mockUsed) {
+                successMsg += " [Dev OTP Code: " + otp + "]";
+            }
+            return ApiResponse.success(successMsg);
             
         } catch (Exception e) {
             System.err.println("❌ Error sending OTP: " + e.getMessage());

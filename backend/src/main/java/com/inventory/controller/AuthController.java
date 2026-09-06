@@ -83,7 +83,7 @@ public class AuthController {
             } else {
                 System.out.println("User not found by email: " + email);
                 return ResponseEntity.badRequest()
-                    .body(ApiResponse.error("Invalid email or password"));
+                    .body(ApiResponse.error("This account is not registered. Please register first."));
             }
             
             Authentication authentication = authenticationManager.authenticate(
@@ -117,11 +117,15 @@ public class AuthController {
             JwtResponse response = new JwtResponse(jwt, new UserResponse(user));
             return ResponseEntity.ok(response);
             
+        } catch (org.springframework.security.authentication.BadCredentialsException e) {
+            System.out.println("Login bad credentials for: " + loginRequest.getEmail());
+            return ResponseEntity.badRequest()
+                .body(ApiResponse.error("Incorrect password. Please verify your password or use Forgot Password."));
         } catch (Exception e) {
             System.out.println("Login error: " + e.getMessage());
             e.printStackTrace();
             return ResponseEntity.badRequest()
-                .body(ApiResponse.error("Invalid email or password"));
+                .body(ApiResponse.error("Failed to authenticate: " + e.getMessage()));
         }
     }
     
@@ -151,6 +155,19 @@ public class AuthController {
     @PostMapping("/logout")
     public ResponseEntity<?> logout() {
         return ResponseEntity.ok(ApiResponse.success("Logout successful"));
+    }
+
+    @PostMapping("/firebase-login")
+    public ResponseEntity<?> firebaseLogin(@Valid @RequestBody FirebaseLoginRequest request) {
+        try {
+            System.out.println("🔥 Firebase login request for: " + request.getEmail());
+            JwtResponse response = authService.firebaseLogin(request);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            System.err.println("❌ Firebase login error: " + e.getMessage());
+            return ResponseEntity.badRequest()
+                .body(ApiResponse.error(e.getMessage()));
+        }
     }
     
     // Password Reset Endpoints

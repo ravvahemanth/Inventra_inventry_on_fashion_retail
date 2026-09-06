@@ -193,11 +193,13 @@ public class FashionProduct {
     }
     
     public boolean isLowStock() {
-        return getTotalStock() <= getTotalMinStock();
+        // A product is low stock if ANY variant is low stock (but not completely out of stock)
+        return variants.stream().anyMatch(v -> v.getQuantity() > 0 && v.getQuantity() <= v.getMinStockLevel());
     }
     
     public boolean isOutOfStock() {
-        return getTotalStock() == 0;
+        // A product is out of stock if ALL variants have 0 quantity
+        return getTotalStock() == 0 || variants.stream().allMatch(v -> v.getQuantity() == 0);
     }
     
     // Helper method to generate SKU

@@ -44,12 +44,17 @@ public interface FashionProductRepository extends JpaRepository<FashionProduct, 
     List<FashionProduct> findAllByOrderByCreatedAtDesc();
     
     // Find products with low stock (using custom query)
-    @Query("SELECT DISTINCT p FROM FashionProduct p JOIN p.variants v WHERE v.quantity <= v.minStockLevel")
+    // A product is low stock if ANY of its variants are at or below minimum stock level (but not 0)
+    @Query("SELECT DISTINCT p FROM FashionProduct p JOIN p.variants v WHERE v.quantity > 0 AND v.quantity <= v.minStockLevel")
     List<FashionProduct> findLowStockProducts();
     
-    // Find products that are out of stock
+    // Find products that are completely out of stock (all variants have 0 quantity)
     @Query("SELECT DISTINCT p FROM FashionProduct p WHERE NOT EXISTS (SELECT v FROM ProductVariant v WHERE v.product = p AND v.quantity > 0)")
     List<FashionProduct> findOutOfStockProducts();
+    
+    // Alternative: Find products with at least one variant having low stock (for debugging)
+    @Query("SELECT p FROM FashionProduct p WHERE EXISTS (SELECT v FROM ProductVariant v WHERE v.product = p AND v.quantity > 0 AND v.quantity <= v.minStockLevel)")
+    List<FashionProduct> findProductsWithLowStockVariants();
     
     // Find products by name containing (search functionality)
     List<FashionProduct> findByNameContainingIgnoreCase(String name);

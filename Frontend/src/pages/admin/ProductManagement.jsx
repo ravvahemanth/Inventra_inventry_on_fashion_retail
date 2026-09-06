@@ -148,26 +148,34 @@ const ProductManagement = () => {
           </div>
 
           <nav className="sidebar-nav">
-            <a href="/dashboard" className="nav-item">
+            <div onClick={() => navigate('/dashboard')} className="nav-item" style={{ cursor: 'pointer' }}>
               <span className="nav-icon">📊</span>
               <span>Dashboard</span>
-            </a>
-            <a href="/admin/products" className="nav-item active">
+            </div>
+            <div onClick={() => navigate('/fashion')} className="nav-item" style={{ cursor: 'pointer' }}>
+              <span className="nav-icon">👗</span>
+              <span>Fashion Collection</span>
+            </div>
+            <div onClick={() => navigate('/fashion/add-product')} className="nav-item" style={{ cursor: 'pointer' }}>
+              <span className="nav-icon">➕</span>
+              <span>Add Fashion Items</span>
+            </div>
+            <div onClick={() => navigate('/admin/fashion-stock')} className="nav-item" style={{ cursor: 'pointer' }}>
               <span className="nav-icon">📦</span>
-              <span>Manage Products</span>
-            </a>
-            <a href="/admin/alerts" className="nav-item">
+              <span>Stock Management</span>
+            </div>
+            <div onClick={() => navigate('/admin/alerts')} className="nav-item" style={{ cursor: 'pointer' }}>
               <span className="nav-icon">🔔</span>
-              <span>View Alerts</span>
-            </a>
-            <a href="/admin/users" className="nav-item">
+              <span>Stock Alerts</span>
+            </div>
+            <div onClick={() => navigate('/admin/users')} className="nav-item" style={{ cursor: 'pointer' }}>
               <span className="nav-icon">👥</span>
               <span>User Management</span>
-            </a>
-            <a href="/admin/transactions" className="nav-item">
-              <span className="nav-icon">📈</span>
-              <span>Transactions</span>
-            </a>
+            </div>
+            <div onClick={() => navigate('/transactions')} className="nav-item" style={{ cursor: 'pointer' }}>
+              <span className="nav-icon">📝</span>
+              <span>Transaction History</span>
+            </div>
           </nav>
 
           <div className="sidebar-footer">

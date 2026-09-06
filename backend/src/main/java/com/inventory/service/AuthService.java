@@ -85,4 +85,36 @@ public class AuthService {
         
         return new UserResponse(user);
     }
+
+    public JwtResponse firebaseLogin(FirebaseLoginRequest request) {
+        String email = request.getEmail().toLowerCase().trim();
+        
+        User user = userRepository.findByEmail(email).orElseGet(() -> {
+            String baseUsername = request.getDisplayName() != null && !request.getDisplayName().trim().isEmpty() ?
+                request.getDisplayName().trim().replaceAll("[^a-zA-Z0-9]", "_").toLowerCase() :
+                email.split("@")[0];
+                
+            String username = baseUsername;
+            int counter = 1;
+            while (userRepository.existsByUsername(username)) {
+                username = baseUsername + counter++;
+            }
+            
+            User newUser = new User(
+                username,
+                email,
+                passwordEncoder.encode("firebase_" + System.currentTimeMillis()),
+                User.Role.STAFF
+            );
+            newUser.setStatus(User.UserStatus.APPROVED);
+            return userRepository.save(newUser);
+        });
+
+        if (user.getStatus() == User.UserStatus.REJECTED) {
+            throw new RuntimeException("Account approval has been rejected.");
+        }
+
+        String jwt = jwtUtils.generateJwtTokenFromUsername(user.getUsername());
+        return new JwtResponse(jwt, new UserResponse(user));
+    }
 }

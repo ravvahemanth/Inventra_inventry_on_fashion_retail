@@ -1,524 +1,401 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getUserRole, logout } from '../../services/authService';
+import {
+  Shirt,
+  ArrowLeft,
+  Edit3,
+  Boxes,
+  Tag,
+  Sparkles,
+} from 'lucide-react';
+import AppLayout from '../../components/layout/AppLayout';
+import StatusBadge from '../../components/ui/StatusBadge';
 import axiosInstance from '../../utils/axiosConfig';
-import './FashionProductDetail.css';
-import '../Dashboard/Dashboard.css';
+import { getUserRole } from '../../services/authService';
+import { useToast } from '../../context/ToastContext';
 
 function FashionProductDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const toast = useToast();
   const userRole = getUserRole();
-  const userEmail = localStorage.getItem('userEmail') || 'User';
-  const username = localStorage.getItem('username') || 'User';
+  const isAdmin = userRole === 'ADMIN';
+  const isManager = userRole === 'MANAGER' || isAdmin;
+
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [showSidebar, setShowSidebar] = useState(false);
   const [selectedVariant, setSelectedVariant] = useState(null);
+
+  // Stock Adjustment Modal
   const [showStockModal, setShowStockModal] = useState(false);
   const [stockAction, setStockAction] = useState('STOCK_IN');
   const [stockQuantity, setStockQuantity] = useState('');
   const [stockReason, setStockReason] = useState('');
+  const [adjusting, setAdjusting] = useState(false);
 
   useEffect(() => {
-    loadProductDetail();
+    loadProduct();
   }, [id]);
 
-  const loadProductDetail = async () => {
+  const loadProduct = async () => {
     try {
-      console.log('🔄 Loading fashion product detail for ID:', id);
-      const response = await axiosInstance.get(`/fashion-products/${id}`);
-      console.log('👗 Product detail loaded:', response.data);
-      setProduct(response.data);
-      if (response.data.variants && response.data.variants.length > 0) {
-        setSelectedVariant(response.data.variants[0]);
+      setLoading(true);
+      const res = await axiosInstance.get(`/fashion-products/${id}`);
+      setProduct(res.data);
+      if (res.data?.variants?.length > 0) {
+        setSelectedVariant(res.data.variants[0]);
       }
-    } catch (error) {
-      console.error('❌ Error loading product detail:', error);
-      if (error.response?.status === 404) {
-        navigate('/fashion');
-      }
+    } catch (err) {
+      console.error('Error loading product detail:', err);
+      toast.error('Fashion piece not found.');
+      navigate('/fashion');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleLogout = () => {
-    if (window.confirm('Are you sure you want to logout?')) {
-      logout();
-      navigate('/login');
-    }
-  };
-
-  const getRoleDisplayName = () => {
-    switch(userRole) {
-      case 'ADMIN': return 'Fashion Administrator';
-      case 'MANAGER': return 'Fashion Manager';
-      case 'STAFF': return 'Fashion Staff';
-      default: return 'Fashion User';
-    }
-  };
-
-  const getRoleEmoji = () => {
-    switch(userRole) {
-      case 'ADMIN': return '👑';
-      case 'MANAGER': return '👔';
-      case 'STAFF': return '👨‍💼';
-      default: return '👤';
-    }
-  };
-
-  const getRoleColor = () => {
-    switch(userRole) {
-      case 'ADMIN': return '#9f7aea';
-      case 'MANAGER': return '#ed8936';
-      case 'STAFF': return '#38b2ac';
-      default: return '#4a5568';
-    }
-  };
-
-  const getStockStatus = (variant) => {
-    if (variant.quantity === 0) return { status: 'Out of Stock', class: 'out-of-stock', color: '#e53e3e' };
-    if (variant.quantity <= variant.minStockLevel) return { status: 'Low Stock', class: 'low-stock', color: '#dd6b20' };
-    return { status: 'In Stock', class: 'in-stock', color: '#38a169' };
-  };
-
-  const openStockModal = (variant, action) => {
-    setSelectedVariant(variant);
-    setStockAction(action);
-    setShowStockModal(true);
-    setStockQuantity('');
-    setStockReason('');
-  };
-
-  const handleStockUpdate = async () => {
-    if (!selectedVariant || !stockQuantity || stockQuantity <= 0) {
-      alert('Please fill in all required fields with valid values');
+  const handleStockUpdate = async (e) => {
+    e.preventDefault();
+    if (!stockQuantity || isNaN(stockQuantity) || Number(stockQuantity) <= 0) {
+      toast.warning('Please specify a valid unit quantity.');
       return;
     }
 
+    setAdjusting(true);
     try {
-      console.log('📦 Updating stock for:', product.name, selectedVariant.sizeDisplayName + '/' + selectedVariant.colorDisplayName);
-      
-      const stockRequest = {
+      await axiosInstance.post('/stock-transactions', {
+        productId: product.id,
+        variantId: selectedVariant?.id,
         type: stockAction,
-        quantity: parseInt(stockQuantity),
-        reason: stockReason || `${stockAction === 'STOCK_IN' ? 'Stock replenishment' : 'Stock adjustment'} by ${username}`
-      };
+        quantity: parseInt(stockQuantity, 10),
+        reason: stockReason || 'Manual adjustment via product detail ledger',
+      });
 
-      const response = await axiosInstance.post(
-        `/fashion-products/${product.id}/variants/${selectedVariant.id}/stock`,
-        stockRequest
-      );
-
-      console.log('✅ Stock updated successfully:', response.data);
-      
-      // Refresh the product details
-      await loadProductDetail();
-      
-      // Close modal
+      toast.success('Inventory ledger updated successfully.');
       setShowStockModal(false);
-      
-      alert(`✅ Stock ${stockAction === 'STOCK_IN' ? 'added' : 'removed'} successfully!\n\nProduct: ${product.name}\nVariant: ${selectedVariant.sizeDisplayName}/${selectedVariant.colorDisplayName}\nQuantity: ${stockQuantity}`);
-      
-    } catch (error) {
-      console.error('❌ Error updating stock:', error);
-      alert(`❌ Failed to update stock: ${error.response?.data?.message || error.message}`);
+      setStockQuantity('');
+      setStockReason('');
+      loadProduct();
+    } catch (err) {
+      toast.error('Failed to update inventory level.');
+    } finally {
+      setAdjusting(false);
     }
   };
 
-  const getSeasonEmoji = (season) => {
-    const seasonEmojis = {
-      'SPRING': '🌸',
-      'SUMMER': '☀️',
-      'AUTUMN': '🍂',
-      'WINTER': '❄️',
-      'ALL_SEASON': '🌍'
-    };
-    return seasonEmojis[season] || '🌍';
-  };
-
-  const getGenderEmoji = (gender) => {
-    const genderEmojis = {
-      'MALE': '👨',
-      'FEMALE': '👩',
-      'UNISEX': '👫',
-      'KIDS': '👶'
-    };
-    return genderEmojis[gender] || '👫';
-  };
-
-  const getCategoryIcon = (category) => {
-    const categoryIcons = {
-      // Men's Clothing
-      'CLOTHING_MENS': '👔',
-      
-      // Women's Clothing  
-      'CLOTHING_WOMENS': '👗',
-      
-      // Kids' Clothing
-      'CLOTHING_KIDS': '👶',
-      
-      // Men's Footwear
-      'FOOTWEAR_MENS': '👞',
-      
-      // Women's Footwear
-      'FOOTWEAR_WOMENS': '👠',
-      
-      // Kids' Footwear
-      'FOOTWEAR_KIDS': '👟',
-      
-      // Accessories
-      'ACCESSORIES_BAGS': '👜',
-      'ACCESSORIES_JEWELRY': '💍',
-      'ACCESSORIES_WATCHES': '⌚',
-      'ACCESSORIES_BELTS': '🔗',
-      'ACCESSORIES_HATS': '🎩',
-      'ACCESSORIES_SUNGLASSES': '🕶️'
-    };
-    
-    return categoryIcons[category] || '👗';
-  };
-
-  if (loading) {
+  if (loading || !product) {
     return (
-      <div className="dashboard-container">
-        <div className="main-content">
-          <div className="loading-state">
-            <div className="spinner-large"></div>
-            <p>Loading product details...</p>
-          </div>
+      <AppLayout title="Product Specification Sheet">
+        <div className="py-24 text-center space-y-3">
+          <div className="w-10 h-10 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto" />
+          <p className="text-xs text-slate-500 font-medium">Loading fashion piece details...</p>
         </div>
-      </div>
+      </AppLayout>
     );
   }
 
-  if (!product) {
-    return (
-      <div className="dashboard-container">
-        <div className="main-content">
-          <div className="empty-state">
-            <div className="empty-icon">❌</div>
-            <h3>Product Not Found</h3>
-            <p>The requested fashion product could not be found.</p>
-            <button onClick={() => navigate('/fashion')} className="back-btn">
-              ← Back to Fashion Collection
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const finalPrice = Number(product.basePrice || 0) + Number(selectedVariant?.priceAdjustment || 0);
 
   return (
-    <div className="dashboard-container">
-      {/* Mobile Sidebar */}
-      <div className={`mobile-sidebar ${showSidebar ? 'active' : ''}`}>
-        <div className="sidebar-overlay" onClick={() => setShowSidebar(false)}></div>
-        <div className="sidebar-content">
-          <div className="sidebar-header">
-            <div className="logo">
-              <span className="logo-icon">👗</span>
-              <h2>Fashion Retail</h2>
-            </div>
-            <button className="close-sidebar" onClick={() => setShowSidebar(false)}>✕</button>
-          </div>
+    <AppLayout
+      title={product.name}
+      subtitle={`Product Reference: ${product.sku || 'SKU-00' + product.id} • ${product.brand || 'Atelier'}`}
+    >
+      <div className="space-y-6">
+        {/* Top Navigation & Action Controls */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <button
+            onClick={() => navigate('/fashion')}
+            className="inline-flex items-center gap-2 text-xs font-bold text-slate-500 hover:text-slate-800 transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>Return to Fashion Catalog</span>
+          </button>
 
-          <div className="role-indicator-mobile" style={{ backgroundColor: getRoleColor() }}>
-            <span>{getRoleEmoji()}</span>
-            <span className="role-text">{getRoleDisplayName()}</span>
-          </div>
-
-          <nav className="sidebar-nav">
-            <a href="/dashboard" className="nav-item">
-              <span className="nav-icon">📊</span>
-              <span>Dashboard</span>
-            </a>
-            <a href="/fashion" className="nav-item">
-              <span className="nav-icon">👗</span>
-              <span>Fashion Collection</span>
-            </a>
-            {(userRole === 'ADMIN' || userRole === 'MANAGER') && (
-              <a href="/fashion/add-product" className="nav-item">
-                <span className="nav-icon">➕</span>
-                <span>Add Fashion Items</span>
-              </a>
+          <div className="flex items-center gap-3">
+            {isManager && (
+              <button
+                onClick={() => setShowStockModal(true)}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 shadow-sm shadow-indigo-600/20 flex items-center gap-1.5 transition-all"
+              >
+                <Boxes className="w-4 h-4" />
+                <span>Adjust Stock Units</span>
+              </button>
             )}
-            {(userRole === 'ADMIN' || userRole === 'MANAGER') && (
-              <a href="/admin/fashion-stock" className="nav-item">
-                <span className="nav-icon">📦</span>
-                <span>Stock Management</span>
-              </a>
-            )}
-            <a href="/admin/alerts" className="nav-item">
-              <span className="nav-icon">🔔</span>
-              <span>Stock Alerts</span>
-            </a>
-            {userRole === 'ADMIN' && (
-              <a href="/admin/users" className="nav-item">
-                <span className="nav-icon">👥</span>
-                <span>User Management</span>
-              </a>
-            )}
-            <a href="/admin/transactions" className="nav-item">
-              <span className="nav-icon">📝</span>
-              <span>Transaction History</span>
-            </a>
-          </nav>
 
-          <div className="sidebar-footer">
-            <div className="user-info-sidebar">
-              <div className="user-avatar-large">{username.charAt(0).toUpperCase()}</div>
-              <div className="user-details">
-                <p className="user-name-sidebar">{username}</p>
-                <p className="user-email-sidebar">{userEmail}</p>
-              </div>
-            </div>
-            <button className="logout-btn-sidebar" onClick={handleLogout}>
-              <span className="nav-icon">🚪</span>
-              <span>Logout</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Main Content */}
-      <div className="main-content">
-        {/* Top Bar */}
-        <div className="topbar">
-          <div className="topbar-left">
-            <button className="menu-btn" onClick={() => setShowSidebar(true)}>
-              ☰
-            </button>
-            <button className="back-btn" onClick={() => navigate('/fashion')}>
-              ← Back to Fashion Collection
-            </button>
-            <div className="page-title-dash">
-              <h1>{getCategoryIcon(product.category)} {product.name}</h1>
-              <p className="topbar-subtitle">Fashion product details and variant management</p>
-            </div>
-          </div>
-          <div className="user-profile">
-            <div className="user-avatar">{username.charAt(0).toUpperCase()}</div>
-            <div className="user-info">
-              <span className="user-name">{username}</span>
-              <span className="user-role" style={{ color: getRoleColor() }}>
-                {getRoleEmoji()} {getRoleDisplayName()}
-              </span>
-            </div>
+            {isAdmin && (
+              <button
+                onClick={() => navigate(`/fashion/edit/${product.id}`)}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-700 bg-white hover:bg-slate-50 border border-slate-300 flex items-center gap-1.5 transition-all shadow-2xs"
+              >
+                <Edit3 className="w-4 h-4 text-indigo-600" />
+                <span>Edit Piece</span>
+              </button>
+            )}
           </div>
         </div>
 
-        {/* Product Detail Content */}
-        <div className="product-detail-content">
-          {/* Product Header */}
-          <div className="product-detail-header">
-            <div className="product-image-section">
-              <div className="product-image-placeholder">
-                <span className="product-category-icon-large">
-                  {getCategoryIcon(product.category)}
+        {/* Main Product Showcase Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Left Column: Visual Artwork Showcase (1 col) */}
+          <div className="space-y-6">
+            <div className="cloud-card p-8 flex flex-col items-center justify-center relative min-h-[300px]">
+              <div className="absolute top-4 left-4">
+                <StatusBadge
+                  status={product.outOfStock ? 'Out of Stock' : product.lowStock ? 'Low Stock' : 'In Stock'}
+                />
+              </div>
+
+              {product.season && (
+                <div className="absolute top-4 right-4 px-2.5 py-1 rounded-full bg-slate-100 border border-slate-200 text-[10px] font-bold text-slate-700">
+                  {product.season.replace('_', ' ')}
+                </div>
+              )}
+
+              <Shirt className="w-32 h-32 text-indigo-300 drop-shadow-md" />
+
+              <div className="mt-6 text-center">
+                <span className="text-xs uppercase font-bold text-indigo-600 tracking-wider">
+                  {product.brand || 'Atelier'}
                 </span>
+                <h2 className="text-xl font-bold font-display text-slate-900 mt-0.5">{product.name}</h2>
+                <p className="text-xs text-slate-400 font-mono mt-1">{product.sku}</p>
               </div>
             </div>
 
-            <div className="product-info-section">
-              <div className="product-badges">
-                <span className="season-badge">
-                  {getSeasonEmoji(product.season)} {product.seasonDisplayName}
-                </span>
-                <span className="gender-badge">
-                  {getGenderEmoji(product.targetGender)} {product.genderDisplayName}
-                </span>
-                <span className="category-badge">
-                  {product.categoryDisplayName}
-                </span>
+            {/* Quick Price Card */}
+            <div className="cloud-card p-6 space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
+                    Calculated Variant Price
+                  </span>
+                  <p className="text-3xl font-bold font-mono text-slate-900 mt-0.5">
+                    ₹{finalPrice.toLocaleString()}
+                  </p>
+                </div>
+                {selectedVariant?.priceAdjustment > 0 && (
+                  <span className="text-xs font-mono font-bold px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    +₹{selectedVariant.priceAdjustment} Adjustment
+                  </span>
+                )}
               </div>
 
-              <h1 className="product-title">{product.name}</h1>
-              <p className="product-brand">by {product.brand}</p>
-              <p className="product-description">{product.description}</p>
-
-              <div className="product-details-grid">
-                <div className="detail-item">
-                  <span className="detail-label">SKU:</span>
-                  <span className="detail-value">{product.sku}</span>
-                </div>
-                <div className="detail-item">
-                  <span className="detail-label">Base Price:</span>
-                  <span className="detail-value">₹{product.basePrice}</span>
-                </div>
-                <div className="detail-item">
-                  <span className="detail-label">Material:</span>
-                  <span className="detail-value">{product.material || 'Not specified'}</span>
-                </div>
-                <div className="detail-item">
-                  <span className="detail-label">Care Instructions:</span>
-                  <span className="detail-value">{product.careInstructions || 'Standard care'}</span>
-                </div>
-                <div className="detail-item">
-                  <span className="detail-label">Total Stock:</span>
-                  <span className="detail-value">{product.totalStock || 0} units</span>
-                </div>
-                <div className="detail-item">
-                  <span className="detail-label">Available Variants:</span>
-                  <span className="detail-value">{product.variants?.length || 0} variants</span>
-                </div>
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
+                <span className="text-slate-500 font-medium">Selected Variant Stock</span>
+                <span
+                  className={`font-mono font-bold ${
+                    (selectedVariant?.quantity || 0) === 0
+                      ? 'text-rose-600'
+                      : (selectedVariant?.quantity || 0) <= (selectedVariant?.minStockLevel || 5)
+                      ? 'text-amber-600'
+                      : 'text-emerald-600'
+                  }`}
+                >
+                  {selectedVariant?.quantity || 0} Units In Stock
+                </span>
               </div>
             </div>
           </div>
 
-          {/* Variants Section */}
-          <div className="variants-section">
-            <h2>Available Variants</h2>
-            {product.variants && product.variants.length > 0 ? (
-              <div className="variants-grid">
-                {product.variants.map(variant => {
-                  const stockStatus = getStockStatus(variant);
+          {/* Right Column: Variant Matrix & Specifications (2 cols) */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Variant Selector Matrix */}
+            <div className="cloud-card p-6 space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-base font-bold font-display text-slate-900 flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-indigo-600" /> Size & Color Variant Matrix
+                </h3>
+                <span className="text-xs text-slate-500 font-medium">
+                  {product.variants?.length || 0} Options Configured
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                {(product.variants || []).map((variant, idx) => {
+                  const isSelected = selectedVariant?.id === variant.id || (!selectedVariant && idx === 0);
+
                   return (
-                    <div key={variant.id} className="variant-detail-card">
-                      <div className="variant-header">
-                        <div className="variant-info">
-                          <span className="size-badge-large">{variant.sizeDisplayName}</span>
-                          <span className="color-badge-large">{variant.colorDisplayName}</span>
-                        </div>
-                        <div className="variant-price">
-                          ₹{(parseFloat(product.basePrice) + parseFloat(variant.priceAdjustment || 0)).toFixed(2)}
-                        </div>
+                    <div
+                      key={variant.id || idx}
+                      onClick={() => setSelectedVariant(variant)}
+                      className={`p-3.5 rounded-2xl border cursor-pointer transition-all ${
+                        isSelected
+                          ? 'bg-indigo-50/80 border-indigo-500 shadow-xs'
+                          : 'bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50/50'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-bold font-mono text-slate-900">{variant.size}</span>
+                        <span className="text-[10px] uppercase font-bold text-indigo-700">
+                          {variant.color}
+                        </span>
                       </div>
-
-                      <div className="variant-stock-info">
-                        <div className="stock-display">
-                          <span className="stock-label">Current Stock:</span>
-                          <span className="stock-value">{variant.quantity} units</span>
-                        </div>
-                        <div className="stock-status-display">
-                          <span 
-                            className={`stock-status ${stockStatus.class}`}
-                            style={{ color: stockStatus.color }}
-                          >
-                            {stockStatus.status}
-                          </span>
-                        </div>
-                        <div className="min-stock-display">
-                          <span className="min-stock-label">Min Level: {variant.minStockLevel}</span>
-                        </div>
+                      <div className="mt-3 flex items-center justify-between text-xs">
+                        <span className="text-[11px] text-slate-500">Floor:</span>
+                        <span
+                          className={`font-mono font-bold ${
+                            variant.quantity === 0
+                              ? 'text-rose-600'
+                              : variant.quantity <= variant.minStockLevel
+                              ? 'text-amber-600'
+                              : 'text-emerald-600'
+                          }`}
+                        >
+                          {variant.quantity} units
+                        </span>
                       </div>
-
-                      {variant.variantSku && (
-                        <div className="variant-sku">
-                          <span className="sku-label">SKU:</span>
-                          <span className="sku-value">{variant.variantSku}</span>
-                        </div>
-                      )}
-
-                      {(userRole === 'ADMIN' || userRole === 'MANAGER') && (
-                        <div className="variant-actions">
-                          <button 
-                            className="stock-in-btn"
-                            onClick={() => openStockModal(variant, 'STOCK_IN')}
-                          >
-                            📦 Stock In
-                          </button>
-                          <button 
-                            className="stock-out-btn"
-                            onClick={() => openStockModal(variant, 'STOCK_OUT')}
-                            disabled={variant.quantity === 0}
-                          >
-                            📤 Stock Out
-                          </button>
-                        </div>
-                      )}
                     </div>
                   );
                 })}
               </div>
-            ) : (
-              <div className="no-variants">
-                <p>No variants available for this product</p>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Stock Update Modal */}
-      {showStockModal && selectedVariant && (
-        <div className="modal-overlay" onClick={() => setShowStockModal(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2>
-                {stockAction === 'STOCK_IN' ? '📦 Add Stock' : '📤 Remove Stock'}
-              </h2>
-              <button onClick={() => setShowStockModal(false)} className="close-modal">✕</button>
             </div>
 
-            <div className="modal-body">
-              <div className="product-details">
-                <h3>{product.name}</h3>
-                <p>Brand: {product.brand}</p>
-                <p>Variant: {selectedVariant.sizeDisplayName} / {selectedVariant.colorDisplayName}</p>
-                <p>Current Stock: <strong>{selectedVariant.quantity} units</strong></p>
-                <p>Minimum Level: {selectedVariant.minStockLevel} units</p>
+            {/* Technical Specifications */}
+            <div className="cloud-card p-6 space-y-5">
+              <h3 className="text-base font-bold font-display text-slate-900">Technical Specifications & Garment Care</h3>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200">
+                  <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">
+                    Product Category
+                  </span>
+                  <span className="text-sm font-bold text-slate-900 mt-0.5 block">
+                    {product.category?.replace('_', ' ')}
+                  </span>
+                </div>
+
+                <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200">
+                  <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">
+                    Target Demographic
+                  </span>
+                  <span className="text-sm font-bold text-slate-900 mt-0.5 block">
+                    {product.targetGender || 'Unisex'}
+                  </span>
+                </div>
+
+                <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200">
+                  <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">
+                    Material Composition
+                  </span>
+                  <span className="text-sm font-bold text-slate-900 mt-0.5 block">
+                    {product.material || 'Premium Fabric'}
+                  </span>
+                </div>
+
+                <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200">
+                  <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">
+                    Garment Care Instructions
+                  </span>
+                  <span className="text-sm font-bold text-slate-900 mt-0.5 block">
+                    {product.careInstructions || 'Dry clean recommended'}
+                  </span>
+                </div>
               </div>
 
-              <div className="stock-form">
-                <div className="form-group">
-                  <label>Action Type</label>
-                  <select 
-                    value={stockAction} 
+              {product.description && (
+                <div className="pt-2">
+                  <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block mb-1">
+                    Editorial Narrative
+                  </span>
+                  <p className="text-xs text-slate-600 leading-relaxed bg-slate-50 p-4 rounded-2xl border border-slate-200 font-medium">
+                    {product.description}
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Stock Adjustment Modal */}
+        {showStockModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div
+              className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm"
+              onClick={() => setShowStockModal(false)}
+            />
+            <div className="relative w-full max-w-md bg-white border border-slate-200 rounded-3xl p-6 shadow-2xl z-10 space-y-5 animate-in fade-in zoom-in-95 duration-150">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-xl bg-indigo-50 text-indigo-600">
+                    <Boxes className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold font-display text-slate-900">Stock Adjustment</h3>
+                    <p className="text-xs text-slate-500 font-medium">
+                      {selectedVariant?.size} • {selectedVariant?.color}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowStockModal(false)}
+                  className="text-slate-400 hover:text-slate-700"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <form onSubmit={handleStockUpdate} className="space-y-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold uppercase text-slate-700">Transaction Action</label>
+                  <select
+                    value={stockAction}
                     onChange={(e) => setStockAction(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900 focus:outline-none focus:border-indigo-600"
                   >
-                    <option value="STOCK_IN">📦 Stock In (Add)</option>
-                    <option value="STOCK_OUT">📤 Stock Out (Remove)</option>
+                    <option value="STOCK_IN">Stock Inbound (Restock)</option>
+                    <option value="STOCK_OUT">Stock Outbound (Sales / Transfer)</option>
+                    <option value="DAMAGE_LOST">Damage / Shrinkage</option>
+                    <option value="RETURN_RESTOCK">Customer Return Restock</option>
                   </select>
                 </div>
 
-                <div className="form-group">
-                  <label>Quantity *</label>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold uppercase text-slate-700">Quantity (Units)</label>
                   <input
                     type="number"
                     min="1"
-                    max={stockAction === 'STOCK_OUT' ? selectedVariant.quantity : 9999}
                     value={stockQuantity}
                     onChange={(e) => setStockQuantity(e.target.value)}
-                    placeholder="Enter quantity"
+                    placeholder="e.g. 25"
+                    required
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-mono text-slate-900 focus:outline-none focus:border-indigo-600"
                   />
                 </div>
 
-                <div className="form-group">
-                  <label>Reason</label>
-                  <textarea
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold uppercase text-slate-700">Audit Justification</label>
+                  <input
+                    type="text"
                     value={stockReason}
                     onChange={(e) => setStockReason(e.target.value)}
-                    placeholder={`Enter reason for ${stockAction === 'STOCK_IN' ? 'adding' : 'removing'} stock...`}
-                    rows="3"
+                    placeholder="e.g. Delivery from central warehouse"
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs text-slate-900 focus:outline-none focus:border-indigo-600"
                   />
                 </div>
 
-                {stockAction === 'STOCK_OUT' && parseInt(stockQuantity) > selectedVariant.quantity && (
-                  <div className="warning-message">
-                    ⚠️ Cannot remove more stock than available ({selectedVariant.quantity} units)
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="modal-actions">
-              <button onClick={() => setShowStockModal(false)} className="cancel-btn">
-                Cancel
-              </button>
-              <button 
-                onClick={handleStockUpdate}
-                disabled={!stockQuantity || stockQuantity <= 0 || (stockAction === 'STOCK_OUT' && parseInt(stockQuantity) > selectedVariant.quantity)}
-                className="confirm-btn"
-              >
-                {stockAction === 'STOCK_IN' ? '📦 Add Stock' : '📤 Remove Stock'}
-              </button>
+                <div className="pt-2 flex items-center justify-end gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowStockModal(false)}
+                    className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 rounded-xl"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={adjusting}
+                    className="px-5 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-sm disabled:opacity-50"
+                  >
+                    {adjusting ? 'Submitting...' : 'Record Transaction'}
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
-        </div>
-      )}
-    </div>
+        )}
+      </div>
+    </AppLayout>
   );
 }
 

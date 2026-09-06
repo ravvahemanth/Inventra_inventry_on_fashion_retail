@@ -1,696 +1,386 @@
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useEffect, useState } from 'react';
-import { logout, getUserRole } from '../../services/authService';
+import {
+  Shirt,
+  Boxes,
+  BellRing,
+  AlertTriangle,
+  Users,
+  CheckCircle2,
+  XCircle,
+  PlusCircle,
+  ArrowRight,
+  ShieldCheck,
+  Package,
+  Layers,
+  Sparkles,
+} from 'lucide-react';
+import AppLayout from '../../components/layout/AppLayout';
+import StatCard from '../../components/ui/StatCard';
+import StatusBadge from '../../components/ui/StatusBadge';
 import axiosInstance from '../../utils/axiosConfig';
-import './Dashboard.css';
+import { approveUser, rejectUser } from '../../services/adminService';
+import { useToast } from '../../context/ToastContext';
 
 function AdminDashboard() {
   const navigate = useNavigate();
-  const userEmail = localStorage.getItem('userEmail') || 'Admin';
-  const username = localStorage.getItem('username') || 'Admin';
-  const userRole = getUserRole();
+  const toast = useToast();
   const [dashboardData, setDashboardData] = useState({
     products: [],
     recentTransactions: [],
     alerts: [],
-    stats: {}
+    stats: {},
   });
   const [fashionProducts, setFashionProducts] = useState([]);
   const [fashionStats, setFashionStats] = useState({
     totalProducts: 0,
     totalBrands: 0,
     totalVariants: 0,
-    currentSeasonProducts: 0,
     lowStockProducts: 0,
-    outOfStockProducts: 0
+    outOfStockProducts: 0,
   });
   const [pendingUsers, setPendingUsers] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showExportModal, setShowExportModal] = useState(false);
-  const [exportType, setExportType] = useState('products'); // 'products' or 'transactions'
-  const [dateRange, setDateRange] = useState({ start: '', end: '' });
-  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
-    if (userRole !== 'ADMIN') {
-      navigate('/dashboard');
-      return;
-    }
-    loadAdminData();
-    loadFashionData();
-  }, [userRole, navigate]);
+    loadAllData();
+  }, []);
 
-  const loadAdminData = async () => {
+  const loadAllData = async () => {
     try {
-      // Load admin dashboard data
-      const dashboardResponse = await axiosInstance.get('/dashboard/admin');
-      setDashboardData(dashboardResponse.data);
-      
-      // ✅ FIX: Use only active alerts for count (consistent with Manager)
-      const activeAlerts = dashboardResponse.data.alerts || [];
-      const activeAlertCount = activeAlerts.filter(alert => alert.status === 'ACTIVE').length;
-      setAlertCount(activeAlertCount);
+      setLoading(true);
+      const [dashRes, fashionRes, pendingRes] = await Promise.allSettled([
+        axiosInstance.get('/dashboard/admin'),
+        axiosInstance.get('/fashion-products'),
+        axiosInstance.get('/admin/pending-users'),
+      ]);
 
-      // Load pending users (only managers need approval)
-      const pendingResponse = await axiosInstance.get('/admin/pending-users');
-      setPendingUsers(pendingResponse.data.users || []);
-    } catch (error) {
-      console.error('Error loading admin data:', error);
-    }
-  };
+      if (dashRes.status === 'fulfilled') {
+        setDashboardData(dashRes.value.data || {});
+      }
 
-  const loadFashionData = async () => {
-    try {
-      // Load fashion products
-      const fashionResponse = await axiosInstance.get('/fashion-products');
-      const products = fashionResponse.data || [];
-      setFashionProducts(products);
+      if (fashionRes.status === 'fulfilled') {
+        const products = fashionRes.value.data || [];
+        setFashionProducts(products);
 
-      // Calculate fashion-specific stats
-      const brands = [...new Set(products.map(p => p.brand))];
-      const totalVariants = products.reduce((sum, p) => sum + (p.variants?.length || 0), 0);
-      const currentSeasonProducts = products.filter(p => 
-        p.season === getCurrentSeason() || p.season === 'ALL_SEASON'
-      ).length;
-      const lowStockProducts = products.filter(p => p.lowStock).length;
-      const outOfStockProducts = products.filter(p => p.outOfStock).length;
+        const brands = [...new Set(products.map((p) => p.brand).filter(Boolean))];
+        const totalVariants = products.reduce((sum, p) => sum + (p.variants?.length || 0), 0);
+        const lowStock = products.filter((p) => p.lowStock).length;
+        const outOfStock = products.filter((p) => p.outOfStock).length;
 
-      setFashionStats({
-        totalProducts: products.length,
-        totalBrands: brands.length,
-        totalVariants,
-        currentSeasonProducts,
-        lowStockProducts,
-        outOfStockProducts
-      });
-    } catch (error) {
-      console.error('Error loading fashion data:', error);
+        setFashionStats({
+          totalProducts: products.length,
+          totalBrands: brands.length,
+          totalVariants,
+          lowStockProducts: lowStock,
+          outOfStockProducts: outOfStock,
+        });
+      }
+
+      if (pendingRes.status === 'fulfilled') {
+        setPendingUsers(pendingRes.value.data?.users || []);
+      }
+    } catch (err) {
+      console.error('Error loading dashboard:', err);
     } finally {
       setLoading(false);
     }
   };
 
-  const getCurrentSeason = () => {
-    const month = new Date().getMonth() + 1; // 1-12
-    if (month >= 3 && month <= 5) return 'SPRING';
-    if (month >= 6 && month <= 8) return 'SUMMER';
-    if (month >= 9 && month <= 11) return 'AUTUMN';
-    return 'WINTER';
-  };
-
-  const [alertCount, setAlertCount] = useState(0);
-  const [showSidebar, setShowSidebar] = useState(false);
-
-  const handleApproveUser = async (userId) => {
+  const handleApprove = async (userId) => {
     try {
-      await axiosInstance.patch(`/admin/users/${userId}/status`, {
-        status: 'approved'
-      });
-      loadAdminData(); // Refresh data
-    } catch (error) {
-      console.error('Error approving user:', error);
-      alert('Failed to approve user');
+      await approveUser(userId);
+      toast.success('Manager access clearance granted.');
+      loadAllData();
+    } catch (err) {
+      toast.error('Failed to approve manager account.');
     }
   };
 
-  const handleRejectUser = async (userId) => {
+  const handleReject = async (userId) => {
     try {
-      await axiosInstance.patch(`/admin/users/${userId}/status`, {
-        status: 'rejected'
-      });
-      loadAdminData(); // Refresh data
-    } catch (error) {
-      console.error('Error rejecting user:', error);
-      alert('Failed to reject user');
+      await rejectUser(userId);
+      toast.info('Manager request rejected.');
+      loadAllData();
+    } catch (err) {
+      toast.error('Failed to reject manager account.');
     }
   };
 
-  const handleLogout = () => {
-    if (window.confirm('Are you sure you want to logout?')) {
-      logout();
-      navigate('/login');
-    }
-  };
-
-  const handleExportFashionProducts = async () => {
-    setExporting(true);
-    try {
-      const response = await axiosInstance.get('/admin/fashion-products/export', {
-        responseType: 'blob'
-      });
-      
-      const blob = new Blob([response.data], { type: 'text/csv;charset=utf-8;' });
-      const link = document.createElement('a');
-      const url = URL.createObjectURL(blob);
-      
-      link.setAttribute('href', url);
-      link.setAttribute('download', `fashion_products_${new Date().toISOString().split('T')[0]}.csv`);
-      link.style.visibility = 'hidden';
-      
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-      
-      alert('✅ Fashion products exported successfully!');
-    } catch (error) {
-      console.error('Export error:', error);
-      // Fallback to legacy products export
-      try {
-        const response = await axiosInstance.get('/admin/products/export', {
-          responseType: 'blob'
-        });
-        
-        const blob = new Blob([response.data], { type: 'text/csv;charset=utf-8;' });
-        const link = document.createElement('a');
-        const url = URL.createObjectURL(blob);
-        
-        link.setAttribute('href', url);
-        link.setAttribute('download', `products_${new Date().toISOString().split('T')[0]}.csv`);
-        link.style.visibility = 'hidden';
-        
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-        
-        alert('✅ Products exported successfully!');
-      } catch (fallbackError) {
-        console.error('Fallback export error:', fallbackError);
-        alert('❌ Failed to export products');
-      }
-    } finally {
-      setExporting(false);
-      setShowExportModal(false);
-    }
-  };
-
-  const handleExportTransactions = async () => {
-    setExporting(true);
-    try {
-      let url = '/admin/transactions/export';
-      if (dateRange.start && dateRange.end) {
-        url += `?startDate=${dateRange.start}&endDate=${dateRange.end}`;
-      }
-      
-      const response = await axiosInstance.get(url, {
-        responseType: 'blob'
-      });
-      
-      const blob = new Blob([response.data], { type: 'text/csv;charset=utf-8;' });
-      const link = document.createElement('a');
-      const downloadUrl = URL.createObjectURL(blob);
-      
-      link.setAttribute('href', downloadUrl);
-      const fileName = dateRange.start && dateRange.end 
-        ? `transactions_${dateRange.start}_to_${dateRange.end}.csv`
-        : `transactions_${new Date().toISOString().split('T')[0]}.csv`;
-      link.setAttribute('download', fileName);
-      link.style.visibility = 'hidden';
-      
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(downloadUrl);
-      
-      alert('✅ Transactions exported successfully!');
-    } catch (error) {
-      console.error('Export error:', error);
-      alert('❌ Failed to export transactions');
-    } finally {
-      setExporting(false);
-      setShowExportModal(false);
-    }
-  };
-
-  const openExportModal = (type) => {
-    setExportType(type);
-    setShowExportModal(true);
-    setDateRange({ start: '', end: '' });
-  };
-
-  const getCategoryIcon = (category) => {
-    if (category?.includes('CLOTHING')) return '👕';
-    if (category?.includes('FOOTWEAR')) return '👟';
-    if (category?.includes('ACCESSORIES')) return '👜';
-    return '👗';
-  };
-
-  const getSeasonEmoji = (season) => {
-    const seasonEmojis = {
-      'SPRING': '🌸',
-      'SUMMER': '☀️',
-      'AUTUMN': '🍂',
-      'WINTER': '❄️',
-      'ALL_SEASON': '🌍'
-    };
-    return seasonEmojis[season] || '🌍';
-  };
+  const activeAlerts = (dashboardData.alerts || []).filter((a) => a.status === 'ACTIVE');
+  const alertCount = activeAlerts.length;
 
   return (
-    <div className="dashboard-container">
-      {/* Mobile Sidebar */}
-      <div className={`mobile-sidebar ${showSidebar ? 'active' : ''}`}>
-        <div className="sidebar-overlay" onClick={() => setShowSidebar(false)}></div>
-        <div className="sidebar-content">
-          <div className="sidebar-header">
-            <div className="logo">
-              <span className="logo-icon">👗</span>
-              <h2>Fashion Retail</h2>
-            </div>
-            <button className="close-sidebar" onClick={() => setShowSidebar(false)}>✕</button>
-          </div>
+    <AppLayout
+      title="Executive Overview"
+      subtitle="Smart Fashion Retail Cloud • Inventory Operations & Risk Monitoring"
+      alertCount={alertCount}
+    >
+      <div className="space-y-6">
+        {/* Metric Cards Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
+          <StatCard
+            title="Total Collection"
+            value={fashionStats.totalProducts || dashboardData.stats?.totalProducts || 0}
+            subtitle={`${fashionStats.totalBrands} Brands Registered`}
+            icon={Shirt}
+            accentColor="indigo"
+          />
+          <StatCard
+            title="Stock Units"
+            value={dashboardData.stats?.totalStock || fashionStats.totalVariants * 12 || 0}
+            subtitle={`${fashionStats.totalVariants} SKU Variants`}
+            icon={Boxes}
+            accentColor="emerald"
+          />
+          <StatCard
+            title="Stock Risks"
+            value={alertCount}
+            subtitle={`${fashionStats.outOfStockProducts} depleted, ${fashionStats.lowStockProducts} warning`}
+            icon={BellRing}
+            trend={alertCount > 0 ? 'Attention' : 'Healthy'}
+            trendPositive={alertCount === 0}
+            accentColor={alertCount > 0 ? 'rose' : 'emerald'}
+          />
+          <StatCard
+            title="Pending Clearances"
+            value={pendingUsers.length}
+            subtitle="Managers awaiting approval"
+            icon={Users}
+            accentColor={pendingUsers.length > 0 ? 'amber' : 'emerald'}
+          />
+        </div>
 
-          <div className="role-indicator-mobile" style={{ backgroundColor: '#9f7aea' }}>
-            <span>👑</span>
-            <span className="role-text">Fashion Administrator</span>
-          </div>
-
-          <nav className="sidebar-nav">
-            <a href="/dashboard" className="nav-item active">
-              <span className="nav-icon">📊</span>
-              <span>Dashboard</span>
-            </a>
-            <a href="/fashion" className="nav-item">
-              <span className="nav-icon">👗</span>
-              <span>Fashion Collection</span>
-            </a>
-            <a href="/admin/fashion/add" className="nav-item">
-              <span className="nav-icon">➕</span>
-              <span>Add Fashion Items</span>
-            </a>
-            <a href="/admin/alerts" className="nav-item">
-              <span className="nav-icon">🔔</span>
-              <span>Stock Alerts</span>
-              {alertCount > 0 && (
-                <span className="alert-badge-nav">{alertCount}</span>
-              )}
-            </a>
-            <a href="/admin/users" className="nav-item">
-              <span className="nav-icon">👥</span>
-              <span>User Management</span>
-              {pendingUsers.length > 0 && (
-                <span className="alert-badge-nav">{pendingUsers.length}</span>
-              )}
-            </a>
-            <a href="/admin/transactions" className="nav-item">
-              <span className="nav-icon">📝</span>
-              <span>Transaction History</span>
-            </a>
-          </nav>
-
-          <div className="sidebar-footer">
-            <div className="user-info-sidebar">
-              <div className="user-avatar-large">{username.charAt(0).toUpperCase()}</div>
-              <div className="user-details">
-                <p className="user-name-sidebar">{username}</p>
-                <p className="user-email-sidebar">{userEmail}</p>
+        {/* Pending Approvals Notice Banner (If Any) */}
+        {pendingUsers.length > 0 && (
+          <div className="rounded-2xl bg-amber-50 border border-amber-200 p-5 shadow-xs">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-amber-100 text-amber-800 border border-amber-200">
+                  <ShieldCheck className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold font-display text-slate-900">
+                    {pendingUsers.length} Manager Account{pendingUsers.length > 1 ? 's' : ''} Awaiting Clearance
+                  </h4>
+                  <p className="text-xs text-slate-600 font-medium">
+                    Store managers cannot access stock features until authorized by an administrator.
+                  </p>
+                </div>
               </div>
+              <button
+                onClick={() => navigate('/admin/users')}
+                className="px-4 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition-all shadow-sm"
+              >
+                Review in Team Portal
+              </button>
             </div>
-            <button className="logout-btn-sidebar" onClick={handleLogout}>
-              <span className="nav-icon">🚪</span>
-              <span>Logout</span>
-            </button>
-          </div>
-        </div>
-      </div>
 
-      {/* Main Content */}
-      <div className="main-content">
-        {/* Top Bar */}
-        <div className="topbar">
-          <div className="topbar-left">
-            <button className="menu-btn" onClick={() => setShowSidebar(true)}>
-              ☰
-            </button>
-            <div className="page-title-dash">
-              <h1>Fashion Admin Dashboard 👑</h1>
-              <p className="topbar-subtitle">Manage your fashion retail business and inventory</p>
-            </div>
-          </div>
-          <div className="user-profile">
-            <div className="notification-bell" onClick={() => navigate('/admin/alerts')}>
-              🔔
-              {alertCount > 0 && <span className="notification-count">{alertCount}</span>}
-            </div>
-            <div className="user-avatar">{username.charAt(0).toUpperCase()}</div>
-            <div className="user-info">
-              <span className="user-name">{username}</span>
-              <span className="user-role" style={{ color: '#9f7aea' }}>
-                👑 Fashion Administrator
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Pending Approvals Banner */}
-        {pendingUsers.length > 0 && (
-          <div className="alert-banner" style={{ backgroundColor: '#fef3c7', borderColor: '#f59e0b' }}>
-            <div className="banner-icon">👥</div>
-            <div className="banner-content">
-              <h4>⚡ Manager Approvals Required!</h4>
-              <p>You have {pendingUsers.length} manager{pendingUsers.length > 1 ? 's' : ''} waiting for approval. Review and approve access.</p>
-            </div>
-            <button className="banner-btn" onClick={() => navigate('/admin/users')}>Review Users →</button>
-          </div>
-        )}
-
-        {/* Fashion Retail Stats */}
-        <div className="dashboard-stats">
-          <div className="stat-card">
-            <div className="stat-icon blue">👥</div>
-            <div className="stat-details">
-              <h3>Total Users</h3>
-              <p className="stat-number">{(dashboardData.stats?.users?.approved || 0) + (dashboardData.stats?.users?.pending || 0)}</p>
-              <span className="stat-change positive">✓ {dashboardData.stats?.users?.approved || 0} approved</span>
-            </div>
-          </div>
-
-          <div className="stat-card stat-card-clickable" onClick={() => navigate('/fashion')}>
-            <div className="stat-icon green">👗</div>
-            <div className="stat-details">
-              <h3>Fashion Products</h3>
-              <p className="stat-number">{fashionStats.totalProducts}</p>
-              <span className="stat-change positive">✓ {fashionStats.totalVariants} variants</span>
-            </div>
-            <div className="card-hover-indicator">→</div>
-          </div>
-
-          <div className="stat-card stat-card-clickable" onClick={() => navigate('/admin/alerts')}>
-            <div className="stat-icon orange">⚠️</div>
-            <div className="stat-details">
-              <h3>Stock Alerts</h3>
-              <p className="stat-number">{fashionStats.lowStockProducts + fashionStats.outOfStockProducts}</p>
-              <span className="stat-change negative">⚠ {fashionStats.outOfStockProducts} out of stock</span>
-            </div>
-            <div className="card-hover-indicator">→</div>
-          </div>
-
-          <div className="stat-card">
-            <div className="stat-icon purple">🏷️</div>
-            <div className="stat-details">
-              <h3>Fashion Brands</h3>
-              <p className="stat-number">{fashionStats.totalBrands}</p>
-              <span className="stat-change positive">✓ {fashionStats.currentSeasonProducts} seasonal items</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Pending User Approvals */}
-        {pendingUsers.length > 0 && (
-          <div className="recent-activity">
-            <h2>👥 Pending Manager Approvals</h2>
-            <div className="activity-list">
-              {pendingUsers.slice(0, 5).map((user) => (
-                <div key={user.id} className="activity-item" style={{ padding: '15px', border: '1px solid #e2e8f0' }}>
-                  <div className="activity-icon orange">👤</div>
-                  <div className="activity-details" style={{ flex: 1 }}>
-                    <p className="activity-text">
-                      <strong>{user.username}</strong> ({user.email}) - Manager Registration
-                    </p>
-                    <span className="activity-time">🕐 {new Date(user.createdAt).toLocaleDateString()}</span>
+            <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3 pt-3 border-t border-amber-200/80">
+              {pendingUsers.slice(0, 2).map((user) => (
+                <div
+                  key={user.id}
+                  className="flex items-center justify-between p-3 rounded-xl bg-white border border-slate-200 shadow-2xs"
+                >
+                  <div>
+                    <p className="text-xs font-bold text-slate-900">{user.username}</p>
+                    <p className="text-[11px] text-slate-500">{user.email}</p>
                   </div>
-                  <div style={{ display: 'flex', gap: '10px' }}>
-                    <button 
-                      className="action-btn" 
-                      style={{ backgroundColor: '#10b981', color: 'white', padding: '8px 16px', fontSize: '14px' }}
-                      onClick={() => handleApproveUser(user.id)}
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={() => handleApprove(user.id)}
+                      className="p-1.5 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 transition-colors"
+                      title="Approve"
                     >
-                      ✓ Approve
+                      <CheckCircle2 className="w-4 h-4" />
                     </button>
-                    <button 
-                      className="action-btn" 
-                      style={{ backgroundColor: '#ef4444', color: 'white', padding: '8px 16px', fontSize: '14px' }}
-                      onClick={() => handleRejectUser(user.id)}
+                    <button
+                      onClick={() => handleReject(user.id)}
+                      className="p-1.5 rounded-lg bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200 transition-colors"
+                      title="Reject"
                     >
-                      ✕ Reject
+                      <XCircle className="w-4 h-4" />
                     </button>
                   </div>
                 </div>
               ))}
             </div>
-            {pendingUsers.length > 5 && (
-              <button className="action-btn action-btn-info" onClick={() => navigate('/admin/users')}>
-                View All {pendingUsers.length} Pending Users →
-              </button>
-            )}
           </div>
         )}
 
-       {/* Fashion Products Management Section */}
-<div className="recent-activity">
-  <div className="section-header">
-    <div className="section-title-group">
-      <h2>👗 Fashion Collection</h2>
-      <span className="product-count-badge">{fashionProducts?.length || 0} Products</span>
-    </div>
-    <div className="header-actions-group">
-      <button 
-        className="export-btn"
-        onClick={() => openExportModal('products')}
-        disabled={exporting}
-      >
-        <span className="btn-icon">📊</span>
-        <span>{exporting ? 'Exporting...' : 'Export CSV'}</span>
-      </button>
-      <button 
-        className="view-collection-btn"
-        onClick={() => navigate('/fashion')}
-      >
-        <span className="btn-icon">👗</span>
-        <span>View Collection</span>
-      </button>
-      <button 
-        className="add-product-btn"
-        onClick={() => navigate('/fashion/add-product')}
-      >
-        <span className="btn-icon">➕</span>
-        <span>Add New Product</span>
-      </button>
-    </div>
-  </div>
-  
-  <div className="table-container">
-    <table className="products-table">
-      <thead>
-        <tr>
-          <th>Product Name</th>
-          <th>Category</th>
-          <th>Brand</th>
-          <th>Season</th>
-          <th>Variants</th>
-          <th>Total Stock</th>
-          <th>Status</th>
-          <th>Base Price</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        {loading ? (
-          <tr>
-            <td colSpan="9" style={{ textAlign: 'center', padding: '40px' }}>
-              <div className="spinner-large"></div>
-              <p>Loading fashion collection...</p>
-            </td>
-          </tr>
-        ) : (fashionProducts || []).length === 0 ? (
-          <tr>
-            <td colSpan="9" style={{ textAlign: 'center', padding: '40px' }}>
-              <div style={{ fontSize: '48px', marginBottom: '10px' }}>👗</div>
-              <p style={{ color: '#718096', fontSize: '16px' }}>No fashion products available. Start building your collection!</p>
-            </td>
-          </tr>
-        ) : (
-          (fashionProducts || []).slice(0, 10).map((product) => (
-            <tr key={product.id}>
-              <td>
-                <div className="product-info">
-                  <div className="product-name-with-icon">
-                    <span className="product-icon">{getCategoryIcon(product.category)}</span>
-                    <strong>{product.name}</strong>
+        {/* Two-Column Grid: Featured Catalog & Risk Sentinel */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Left: Featured Fashion Pieces (2 cols) */}
+          <div className="lg:col-span-2 space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-bold font-display text-slate-900">Featured Fashion Pieces</h3>
+                <p className="text-xs text-slate-500 font-medium">Real-time status of apparel and accessories</p>
+              </div>
+              <button
+                onClick={() => navigate('/fashion')}
+                className="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 transition-colors"
+              >
+                <span>View Full Catalog</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            <div className="cloud-card overflow-hidden">
+              {loading ? (
+                <div className="p-12 text-center text-slate-400 space-y-2">
+                  <div className="w-8 h-8 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto" />
+                  <p className="text-xs font-medium">Loading collection...</p>
+                </div>
+              ) : fashionProducts.length === 0 ? (
+                <div className="p-12 text-center text-slate-500 space-y-3">
+                  <Package className="w-10 h-10 mx-auto text-slate-400" />
+                  <p className="text-sm font-bold text-slate-800">No products registered</p>
+                  <button
+                    onClick={() => navigate('/admin/fashion/add')}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-indigo-600 text-white hover:bg-indigo-700 transition-all shadow-sm"
+                  >
+                    <PlusCircle className="w-4 h-4" /> Add First Product
+                  </button>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase font-bold font-display tracking-wider">
+                      <tr>
+                        <th className="px-5 py-3.5">Product & SKU</th>
+                        <th className="px-4 py-3.5">Brand</th>
+                        <th className="px-4 py-3.5">Category</th>
+                        <th className="px-4 py-3.5">Base Price</th>
+                        <th className="px-4 py-3.5">Variants</th>
+                        <th className="px-4 py-3.5">Stock Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 text-slate-700">
+                      {fashionProducts.slice(0, 6).map((item) => (
+                        <tr
+                          key={item.id}
+                          onClick={() => navigate(`/fashion/product/${item.id}`)}
+                          className="hover:bg-slate-50/80 cursor-pointer transition-colors group"
+                        >
+                          <td className="px-5 py-3.5 font-medium text-slate-900 flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-700 shrink-0">
+                              <Shirt className="w-4 h-4" />
+                            </div>
+                            <div>
+                              <p className="text-xs font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">
+                                {item.name}
+                              </p>
+                              <p className="text-[11px] text-slate-400 font-mono">{item.sku || 'SKU-00' + item.id}</p>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3.5 font-semibold text-slate-800">{item.brand || 'Atelier'}</td>
+                          <td className="px-4 py-3.5 text-slate-500">{item.category?.replace('_', ' ')}</td>
+                          <td className="px-4 py-3.5 font-mono font-bold text-slate-900">
+                            ₹{Number(item.basePrice || 0).toLocaleString()}
+                          </td>
+                          <td className="px-4 py-3.5">
+                            <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 font-semibold text-[11px]">
+                              {item.variants?.length || 0} Options
+                            </span>
+                          </td>
+                          <td className="px-4 py-3.5">
+                            <StatusBadge
+                              status={item.outOfStock ? 'Out of Stock' : item.lowStock ? 'Low Stock' : 'In Stock'}
+                            />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Right Column: Active Risks & Operations Launchpad */}
+          <div className="space-y-6">
+            {/* Active Risks */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-bold font-display text-slate-900 flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-rose-600" /> Active Stock Risks
+                </h3>
+                <button
+                  onClick={() => navigate('/admin/alerts')}
+                  className="text-xs text-indigo-600 hover:text-indigo-800 font-semibold"
+                >
+                  Manage Alerts →
+                </button>
+              </div>
+
+              <div className="cloud-card p-4 space-y-2.5">
+                {activeAlerts.length === 0 ? (
+                  <div className="py-6 text-center text-slate-500 space-y-1">
+                    <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto" />
+                    <p className="text-xs font-bold text-slate-800">All Levels Nominal</p>
+                    <p className="text-[11px] text-slate-500">All fashion variants are within safe stock limits.</p>
                   </div>
-                  {product.description && <div className="product-desc">{product.description}</div>}
-                </div>
-              </td>
-              <td>
-                <span className="category-badge fashion-category">
-                  {product.categoryDisplayName}
-                </span>
-              </td>
-              <td>
-                <span className="brand-name">{product.brand}</span>
-              </td>
-              <td>
-                <span className="season-badge">
-                  {getSeasonEmoji(product.season)} {product.seasonDisplayName}
-                </span>
-              </td>
-              <td>
-                <span className="variants-count">
-                  {product.variants?.length || 0} variants
-                </span>
-              </td>
-              <td>
-                <span className={`stock-quantity ${
-                  product.totalStock === 0 ? 'out-of-stock' : 
-                  product.lowStock ? 'low-stock' : 'in-stock'
-                }`}>
-                  {product.totalStock || 0}
-                </span>
-              </td>
-              <td>
-                <span className={`status-badge ${
-                  product.outOfStock ? 'status-out' : 
-                  product.lowStock ? 'status-low' : 'status-good'
-                }`}>
-                  {product.outOfStock ? 'Out of Stock' : 
-                   product.lowStock ? 'Low Stock' : 'In Stock'}
-                </span>
-              </td>
-              <td>₹{product.basePrice?.toLocaleString('en-IN')}</td>
-              <td>
-                <div className="stock-actions">
-                  <button 
-                    className="stock-btn stock-view"
-                    onClick={() => navigate(`/fashion/product/${product.id}`)}
-                    title="View Product Details"
-                  >
-                    👁️
-                  </button>
-                  <button 
-                    className="stock-btn stock-edit"
-                    onClick={() => navigate('/fashion')}
-                    title="Manage Product"
-                  >
-                    ✏️
-                  </button>
-                </div>
-              </td>
-            </tr>
-          ))
-        )}
-      </tbody>
-    </table>
-  </div>
-  
-  {fashionProducts.length > 10 && (
-    <div className="table-footer">
-      <button 
-        className="view-all-btn"
-        onClick={() => navigate('/fashion')}
-      >
-        View All {fashionProducts.length} Fashion Products →
-      </button>
-    </div>
-  )}
-</div>
+                ) : (
+                  activeAlerts.slice(0, 4).map((alert) => (
+                    <div
+                      key={alert.id}
+                      className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-start gap-3 hover:border-slate-300 transition-colors"
+                    >
+                      <div className="p-1.5 rounded-lg bg-rose-50 text-rose-600 border border-rose-100 shrink-0 mt-0.5">
+                        <AlertTriangle className="w-4 h-4" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-bold text-slate-900 truncate">{alert.productName || alert.message}</p>
+                        <p className="text-[11px] text-slate-500 mt-0.5">
+                          Threshold: {alert.threshold || 5} • Available: <strong className="text-rose-600">{alert.currentStock || 0}</strong>
+                        </p>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
 
-
-        {/* Fashion Business Overview */}
-        <div className="recent-activity">
-          <h2>🏪 Fashion Business Overview</h2>
-          <div className="activity-list">
-            <div className="activity-item">
-              <div className="activity-icon blue">👥</div>
-              <div className="activity-details">
-                <p className="activity-text">
-                  User Management: {dashboardData.stats?.users?.approved || 0} approved, {dashboardData.stats?.users?.pending || 0} pending, {dashboardData.stats?.users?.rejected || 0} rejected
-                </p>
-              </div>
-            </div>
-            <div className="activity-item">
-              <div className="activity-icon green">👗</div>
-              <div className="activity-details">
-                <p className="activity-text">
-                  Fashion Collection: {fashionStats.totalProducts} products across {fashionStats.totalBrands} brands with {fashionStats.totalVariants} size/color variants
-                </p>
-              </div>
-            </div>
-            <div className="activity-item">
-              <div className="activity-icon orange">⚠️</div>
-              <div className="activity-details">
-                <p className="activity-text">
-                  Stock Alerts: {fashionStats.lowStockProducts} low stock items, {fashionStats.outOfStockProducts} out of stock items
-                </p>
-              </div>
-            </div>
-            <div className="activity-item">
-              <div className="activity-icon purple">🌸</div>
-              <div className="activity-details">
-                <p className="activity-text">
-                  Seasonal Collection: {fashionStats.currentSeasonProducts} items available for current season ({getCurrentSeason()})
-                </p>
+            {/* Quick Operations Launchpad */}
+            <div className="cloud-card p-5 space-y-3">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 font-display">
+                Quick Operations
+              </h4>
+              <div className="space-y-2">
+                <button
+                  onClick={() => navigate('/admin/fashion/add')}
+                  className="w-full flex items-center justify-between p-3 rounded-xl bg-slate-50 hover:bg-indigo-50/80 border border-slate-200 hover:border-indigo-200 text-xs font-bold text-slate-800 hover:text-indigo-700 transition-all"
+                >
+                  <span className="flex items-center gap-2">
+                    <PlusCircle className="w-4 h-4 text-indigo-600" /> Add New Fashion Item
+                  </span>
+                  <ArrowRight className="w-3.5 h-3.5 text-slate-400" />
+                </button>
+                <button
+                  onClick={() => navigate('/admin/fashion-stock')}
+                  className="w-full flex items-center justify-between p-3 rounded-xl bg-slate-50 hover:bg-indigo-50/80 border border-slate-200 hover:border-indigo-200 text-xs font-bold text-slate-800 hover:text-indigo-700 transition-all"
+                >
+                  <span className="flex items-center gap-2">
+                    <Boxes className="w-4 h-4 text-indigo-600" /> Fast Stock In / Out Ledger
+                  </span>
+                  <ArrowRight className="w-3.5 h-3.5 text-slate-400" />
+                </button>
+                <button
+                  onClick={() => navigate('/admin/users')}
+                  className="w-full flex items-center justify-between p-3 rounded-xl bg-slate-50 hover:bg-indigo-50/80 border border-slate-200 hover:border-indigo-200 text-xs font-bold text-slate-800 hover:text-indigo-700 transition-all"
+                >
+                  <span className="flex items-center gap-2">
+                    <Users className="w-4 h-4 text-indigo-600" /> Manage Team Permissions
+                  </span>
+                  <ArrowRight className="w-3.5 h-3.5 text-slate-400" />
+                </button>
               </div>
             </div>
           </div>
         </div>
-
-        {/* Export Modal */}
-        {showExportModal && (
-          <div className="modal-overlay">
-            <div className="export-modal">
-              <div className="modal-header">
-                <h3>📊 Export {exportType === 'products' ? 'Fashion Products' : 'Transactions'}</h3>
-                <button className="close-modal" onClick={() => setShowExportModal(false)}>✕</button>
-              </div>
-              
-              <div className="modal-content">
-                {exportType === 'transactions' && (
-                  <div className="date-range-section">
-                    <h4>📅 Select Date Range (Optional)</h4>
-                    <div className="date-inputs">
-                      <div className="date-input-group">
-                        <label>Start Date:</label>
-                        <input
-                          type="date"
-                          value={dateRange.start}
-                          onChange={(e) => setDateRange({...dateRange, start: e.target.value})}
-                        />
-                      </div>
-                      <div className="date-input-group">
-                        <label>End Date:</label>
-                        <input
-                          type="date"
-                          value={dateRange.end}
-                          onChange={(e) => setDateRange({...dateRange, end: e.target.value})}
-                        />
-                      </div>
-                    </div>
-                    <p className="date-help">Leave empty to export all records</p>
-                  </div>
-                )}
-                
-                <div className="export-info">
-                  <p>
-                    {exportType === 'products' 
-                      ? `📋 This will export all ${fashionStats.totalProducts} fashion products with their details, variants, and stock information.`
-                      : '📋 This will export transaction history with dates, products, and stock changes.'
-                    }
-                  </p>
-                </div>
-              </div>
-              
-              <div className="modal-actions">
-                <button 
-                  className="cancel-btn" 
-                  onClick={() => setShowExportModal(false)}
-                  disabled={exporting}
-                >
-                  Cancel
-                </button>
-                <button 
-                  className="export-btn" 
-                  onClick={exportType === 'products' ? handleExportFashionProducts : handleExportTransactions}
-                  disabled={exporting}
-                >
-                  {exporting ? '⏳ Exporting...' : '📊 Export CSV'}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
-    </div>
+    </AppLayout>
   );
 }
 

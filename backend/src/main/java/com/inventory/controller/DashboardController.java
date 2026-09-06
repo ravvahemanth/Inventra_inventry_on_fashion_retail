@@ -35,17 +35,28 @@ public class DashboardController {
     @GetMapping("/staff")
     @PreAuthorize("hasRole('STAFF')")
     public ResponseEntity<Map<String, Object>> getStaffDashboard() {
+        System.out.println("📊 Staff Dashboard - Fetching data...");
         Map<String, Object> dashboard = new HashMap<>();
         
         // Staff can view fashion products and stock levels
         List<FashionProductResponse> fashionProducts = fashionProductService.getAllFashionProducts();
+        System.out.println("✅ Total products: " + fashionProducts.size());
+        
         dashboard.put("products", fashionProducts);
         
         // Basic stats
+        List<FashionProductResponse> lowStockProducts = fashionProductService.getLowStockFashionProducts();
+        List<FashionProductResponse> outOfStockProducts = fashionProductService.getOutOfStockFashionProducts();
+        
+        System.out.println("📊 Staff Dashboard Stats:");
+        System.out.println("  - Total Products: " + fashionProducts.size());
+        System.out.println("  - Low Stock Products: " + lowStockProducts.size());
+        System.out.println("  - Out of Stock Products: " + outOfStockProducts.size());
+        
         Map<String, Object> stats = new HashMap<>();
         stats.put("totalProducts", fashionProducts.size());
-        stats.put("lowStockProducts", fashionProductService.getLowStockFashionProducts().size());
-        stats.put("outOfStockProducts", fashionProductService.getOutOfStockFashionProducts().size());
+        stats.put("lowStockProducts", lowStockProducts.size());
+        stats.put("outOfStockProducts", outOfStockProducts.size());
         dashboard.put("stats", stats);
         
         return ResponseEntity.ok(dashboard);

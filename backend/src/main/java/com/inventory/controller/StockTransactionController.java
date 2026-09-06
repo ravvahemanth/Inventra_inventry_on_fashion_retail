@@ -12,7 +12,9 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/stock-transactions")
@@ -100,21 +102,41 @@ public class StockTransactionController {
     /**
      * Create a new stock transaction
      * POST /api/stock-transactions
-     * ADMIN: Full access, MANAGER: Approve stock updates, STAFF: Add stock entries
+     * ADMIN: Full access, MANAGER: Approve stock updates
+     * STAFF: No access (view only)
      */
     @PostMapping
-    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER') or hasRole('STAFF')")
-    public ResponseEntity<StockTransactionResponse> createTransaction(
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER')")
+    public ResponseEntity<?> createTransaction(
             @RequestBody StockTransactionRequest request) {
         try {
             System.out.println("📝 POST /api/stock-transactions - Creating new transaction");
+            System.out.println("  Request: " + request.toString());
             String username = SecurityContextHolder.getContext().getAuthentication().getName();
             StockTransactionResponse response = stockTransactionService.createStockTransaction(request, username);
             System.out.println("✅ Transaction created with ID: " + response.getId());
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             System.err.println("❌ Error creating transaction: " + e.getMessage());
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+            e.printStackTrace();
+            
+            // Return error message in response body
+            Map<String, String> errorResponse = new HashMap<>();
+            errorResponse.put("error", "Bad Request");
+            errorResponse.put("message", e.getMessage());
+            errorResponse.put("status", "400");
+            
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+        } catch (Exception e) {
+            System.err.println("❌ Unexpected error creating transaction: " + e.getMessage());
+            e.printStackTrace();
+            
+            Map<String, String> errorResponse = new HashMap<>();
+            errorResponse.put("error", "Internal Server Error");
+            errorResponse.put("message", e.getMessage());
+            errorResponse.put("status", "500");
+            
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
         }
     }
     

@@ -1,492 +1,271 @@
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useEffect, useState } from 'react';
-import { logout, getUserRole } from '../../services/authService';
+import {
+  BellRing,
+  AlertTriangle,
+  CheckCircle2,
+  Trash2,
+  RefreshCw,
+  Boxes,
+} from 'lucide-react';
+import AppLayout from '../../components/layout/AppLayout';
+import StatCard from '../../components/ui/StatCard';
+import StatusBadge from '../../components/ui/StatusBadge';
+import ConfirmModal from '../../components/ui/ConfirmModal';
 import axiosInstance from '../../utils/axiosConfig';
-import '../Dashboard/Dashboard.css';
+import { useToast } from '../../context/ToastContext';
 
 function AdminAlerts() {
   const navigate = useNavigate();
-  const userEmail = localStorage.getItem('userEmail') || 'Admin';
-  const username = localStorage.getItem('username') || 'Admin';
-  const userRole = getUserRole();
+  const toast = useToast();
   const [alerts, setAlerts] = useState([]);
-  const [filter, setFilter] = useState('all');
   const [loading, setLoading] = useState(true);
-  const [showSidebar, setShowSidebar] = useState(false);
+  const [filter, setFilter] = useState('ALL');
 
-  const stats = {
-    total: alerts.length,
-    unread: alerts.filter(a => a.status === 'ACTIVE').length,
-    lowStock: alerts.filter(a => a.type === 'LOW_STOCK' && a.status === 'ACTIVE').length,
-    outOfStock: alerts.filter(a => a.type === 'OUT_OF_STOCK' && a.status === 'ACTIVE').length,
-    resolved: alerts.filter(a => a.status === 'RESOLVED').length
-  };
+  // Delete Confirm Modal State
+  const [deleteId, setDeleteId] = useState(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   useEffect(() => {
-    if (userRole !== 'ADMIN') {
-      navigate('/dashboard');
-      return;
-    }
     loadAlerts();
-  }, [userRole, navigate]);
+  }, []);
 
   const loadAlerts = async () => {
     try {
-      const response = await axiosInstance.get('/alerts');
-      console.log('Admin Alerts Response:', response.data);
-      // ✅ Backend returns { success: true, message: "...", data: [...] }
-      setAlerts(response.data.data || []);
-    } catch (error) {
-      console.error('Error loading alerts:', error);
-      setAlerts([]);
+      setLoading(true);
+      const res = await axiosInstance.get('/fashion-alerts');
+      setAlerts(res.data?.data || res.data || []);
+    } catch (err) {
+      console.error('Error loading alerts:', err);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleMarkAsRead = async (alertId) => {
+  const handleResolveAlert = async (alertId) => {
     try {
-      await axiosInstance.put(`/alerts/${alertId}/resolve`);
+      await axiosInstance.put(`/fashion-alerts/${alertId}/resolve`);
+      toast.success('Alert marked as resolved.');
       loadAlerts();
-    } catch (error) {
-      console.error('Error resolving alert:', error);
+    } catch (err) {
+      toast.error('Failed to resolve alert.');
     }
   };
 
-  const handleDeleteAlert = async (alertId) => {
-    if (window.confirm('Are you sure you want to delete this alert?')) {
-      try {
-        await axiosInstance.delete(`/alerts/${alertId}`);
-        loadAlerts();
-      } catch (error) {
-        console.error('Error deleting alert:', error);
-      }
+  const confirmDelete = (alertId) => {
+    setDeleteId(alertId);
+    setShowDeleteModal(true);
+  };
+
+  const handleDeleteAlert = async () => {
+    if (!deleteId) return;
+    try {
+      await axiosInstance.delete(`/fashion-alerts/${deleteId}`);
+      toast.info('Alert record purged from sentinel.');
+      loadAlerts();
+    } catch (err) {
+      toast.error('Failed to purge alert record.');
+    } finally {
+      setDeleteId(null);
+      setShowDeleteModal(false);
     }
   };
 
-  const handleLogout = () => {
-    if (window.confirm('Are you sure you want to logout?')) {
-      logout();
-      navigate('/login');
-    }
-  };
+  const activeAlerts = alerts.filter((a) => a.status === 'ACTIVE');
+  const lowStock = activeAlerts.filter((a) => a.type === 'LOW_STOCK');
+  const outOfStock = activeAlerts.filter((a) => a.type === 'OUT_OF_STOCK');
+  const resolved = alerts.filter((a) => a.status === 'RESOLVED');
 
-  const filteredAlerts = filter === 'all' 
-    ? alerts 
-    : filter === 'unread' 
-    ? alerts.filter(a => a.status === 'ACTIVE')
-    : filter === 'LOW_STOCK'
-    ? alerts.filter(a => a.type === 'LOW_STOCK')
-    : filter === 'OUT_OF_STOCK'
-    ? alerts.filter(a => a.type === 'OUT_OF_STOCK')
-    : alerts;
-
-  const getAlertIcon = (type) => {
-    switch(type) {
-      case 'LOW_STOCK': return '⚠️';
-      case 'OUT_OF_STOCK': return '🚨';
-      default: return '📢';
-    }
-  };
-
-  const getAlertColor = (type) => {
-    switch(type) {
-      case 'OUT_OF_STOCK': return '#fc8181';
-      case 'LOW_STOCK': return '#f6ad55';
-      default: return '#9f7aea';
-    }
-  };
+  const filteredAlerts = alerts.filter((a) => {
+    if (filter === 'ACTIVE') return a.status === 'ACTIVE';
+    if (filter === 'LOW_STOCK') return a.type === 'LOW_STOCK' && a.status === 'ACTIVE';
+    if (filter === 'OUT_OF_STOCK') return a.type === 'OUT_OF_STOCK' && a.status === 'ACTIVE';
+    if (filter === 'RESOLVED') return a.status === 'RESOLVED';
+    return true;
+  });
 
   return (
-    <div className="dashboard-container">
-      {/* Mobile Sidebar */}
-      <div className={`mobile-sidebar ${showSidebar ? 'active' : ''}`}>
-        <div className="sidebar-overlay" onClick={() => setShowSidebar(false)}></div>
-        <div className="sidebar-content">
-          <div className="sidebar-header">
-            <div className="logo">
-              <span className="logo-icon">📦</span>
-              <h2>Inventra</h2>
-            </div>
-            <button className="close-sidebar" onClick={() => setShowSidebar(false)}>✕</button>
-          </div>
-
-          <div className="role-indicator-mobile" style={{background: 'linear-gradient(135deg, #fc8181 0%, #f56565 100%)'}}>
-            <span>👑</span>
-            <span className="role-text">Admin Panel</span>
-          </div>
-
-          <nav className="sidebar-nav">
-            <a href="/dashboard" className="nav-item">
-              <span className="nav-icon">🏠</span>
-              <span>Dashboard</span>
-            </a>
-            <a href="/admin/users" className="nav-item">
-              <span className="nav-icon">👥</span>
-              <span>User Management</span>
-            </a>
-            <a href="/admin/products" className="nav-item">
-              <span className="nav-icon">📦</span>
-              <span>Products</span>
-            </a>
-            <a href="/admin/transactions" className="nav-item">
-              <span className="nav-icon">📊</span>
-              <span>Transactions</span>
-            </a>
-            <a href="/admin/alerts" className="nav-item active">
-              <span className="nav-icon">🔔</span>
-              <span>Alerts</span>
-              {stats.unread > 0 && <span className="alert-badge-nav">{stats.unread}</span>}
-            </a>
-          </nav>
-
-          <div className="sidebar-footer">
-            <div className="user-info-sidebar">
-              <div className="user-avatar-large">
-                {username.charAt(0).toUpperCase()}
-              </div>
-              <div className="user-details">
-                <p className="user-name-sidebar">{username}</p>
-                <p className="user-email-sidebar">{userEmail}</p>
-              </div>
-            </div>
-            <button className="logout-btn-sidebar" onClick={handleLogout}>
-              <span>🚪</span>
-              <span>Logout</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Main Content */}
-      <div className="main-content">
-        <div className="topbar">
-          <div className="topbar-left">
-            <button className="menu-btn" onClick={() => setShowSidebar(true)}>☰</button>
-            <div className="page-title-dash">
-              <h1>🔔 Alert Management</h1>
-              <p className="topbar-subtitle">Monitor and manage system alerts</p>
-            </div>
-          </div>
-          <div className="user-profile">
-            <div className="notification-bell">
-              <span>🔔</span>
-              {stats.unread > 0 && <span className="notification-count">{stats.unread}</span>}
-            </div>
-            <div className="user-avatar">{username.charAt(0).toUpperCase()}</div>
-            <div className="user-info">
-              <div className="user-name">{username}</div>
-              <div className="user-role" style={{color: '#fc8181'}}>● Admin</div>
-            </div>
-          </div>
+    <AppLayout
+      title="Stock Risk & Alerts"
+      subtitle="Smart Fashion Retail Cloud • Automated Threshold Alerts & Low Stock Mitigation"
+      alertCount={activeAlerts.length}
+    >
+      <div className="space-y-6">
+        {/* Metric Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
+          <StatCard
+            title="Total Alert Log"
+            value={alerts.length}
+            subtitle="Historical risk logs"
+            icon={BellRing}
+            accentColor="indigo"
+          />
+          <StatCard
+            title="Active Incidents"
+            value={activeAlerts.length}
+            subtitle="Requires floor restock"
+            icon={AlertTriangle}
+            accentColor={activeAlerts.length > 0 ? 'rose' : 'emerald'}
+          />
+          <StatCard
+            title="Depleted Out of Stock"
+            value={outOfStock.length}
+            subtitle="Zero units on hand"
+            icon={Boxes}
+            accentColor={outOfStock.length > 0 ? 'rose' : 'emerald'}
+          />
+          <StatCard
+            title="Resolved Incidents"
+            value={resolved.length}
+            subtitle="Restocked & cleared"
+            icon={CheckCircle2}
+            accentColor="emerald"
+          />
         </div>
 
-        {/* Alert Stats */}
-        <div className="dashboard-stats">
-          <div className="stat-card">
-            <div className="stat-icon blue">
-              <span>📊</span>
-            </div>
-            <div className="stat-details">
-              <h3>Total Alerts</h3>
-              <div className="stat-number">{stats.total}</div>
-            </div>
+        {/* Filter Strip & Actions */}
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 rounded-2xl bg-white border border-slate-200 shadow-2xs">
+          <div className="flex items-center gap-2 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0">
+            {[
+              { id: 'ALL', label: 'All Incidents' },
+              { id: 'ACTIVE', label: `Active Risks (${activeAlerts.length})` },
+              { id: 'OUT_OF_STOCK', label: `Out of Stock (${outOfStock.length})` },
+              { id: 'LOW_STOCK', label: `Low Stock (${lowStock.length})` },
+              { id: 'RESOLVED', label: `Resolved (${resolved.length})` },
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setFilter(tab.id)}
+                className={`px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all ${
+                  filter === tab.id
+                    ? 'bg-indigo-600 text-white shadow-xs'
+                    : 'bg-slate-100 text-slate-600 hover:text-slate-900 border border-slate-200'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
           </div>
 
-          <div className="stat-card">
-            <div className="stat-icon orange">
-              <span>🔔</span>
-            </div>
-            <div className="stat-details">
-              <h3>Unread Alerts</h3>
-              <div className="stat-number">{stats.unread}</div>
-            </div>
-          </div>
-
-          <div className="stat-card">
-            <div className="stat-icon" style={{background: 'linear-gradient(135deg, #f6ad55 0%, #ed8936 100%)', boxShadow: '0 8px 20px rgba(246, 173, 85, 0.3)'}}>
-              <span>⚠️</span>
-            </div>
-            <div className="stat-details">
-              <h3>Low Stock</h3>
-              <div className="stat-number">{stats.lowStock}</div>
-            </div>
-          </div>
-
-          <div className="stat-card">
-            <div className="stat-icon" style={{background: 'linear-gradient(135deg, #fc8181 0%, #f56565 100%)', boxShadow: '0 8px 20px rgba(252, 129, 129, 0.3)'}}>
-              <span>🚨</span>
-            </div>
-            <div className="stat-details">
-              <h3>Out of Stock</h3>
-              <div className="stat-number">{stats.outOfStock}</div>
-            </div>
-          </div>
-
-          <div className="stat-card">
-            <div className="stat-icon green">
-              <span>✅</span>
-            </div>
-            <div className="stat-details">
-              <h3>Resolved</h3>
-              <div className="stat-number">{stats.resolved}</div>
-            </div>
-          </div>
+          <button
+            onClick={loadAlerts}
+            className="px-4 py-2 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-2 shrink-0 shadow-2xs"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            <span>Refresh Alerts</span>
+          </button>
         </div>
 
-        {/* Filter Section */}
-        <div style={{padding: '0 35px 25px 35px'}}>
-          <div style={{background: 'white', padding: '25px 30px', borderRadius: '16px', boxShadow: '0 5px 20px rgba(0,0,0,0.08)', marginBottom: '25px'}}>
-            <h2 style={{fontSize: '20px', fontWeight: '800', color: '#1a202c', marginBottom: '20px'}}>Filter Alerts</h2>
-            <div style={{display: 'flex', gap: '12px', flexWrap: 'wrap'}}>
-              <button
-                onClick={() => setFilter('all')}
-                style={{
-                  padding: '12px 24px',
-                  border: filter === 'all' ? '2px solid #667eea' : '2px solid #e2e8f0',
-                  background: filter === 'all' ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' : 'white',
-                  color: filter === 'all' ? 'white' : '#4a5568',
-                  borderRadius: '12px',
-                  fontWeight: '700',
-                  cursor: 'pointer',
-                  transition: 'all 0.3s',
-                  boxShadow: filter === 'all' ? '0 4px 15px rgba(102, 126, 234, 0.3)' : 'none'
-                }}
-              >
-                📋 All ({stats.total})
-              </button>
-              <button
-                onClick={() => setFilter('unread')}
-                style={{
-                  padding: '12px 24px',
-                  border: filter === 'unread' ? '2px solid #667eea' : '2px solid #e2e8f0',
-                  background: filter === 'unread' ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' : 'white',
-                  color: filter === 'unread' ? 'white' : '#4a5568',
-                  borderRadius: '12px',
-                  fontWeight: '700',
-                  cursor: 'pointer',
-                  transition: 'all 0.3s',
-                  boxShadow: filter === 'unread' ? '0 4px 15px rgba(102, 126, 234, 0.3)' : 'none'
-                }}
-              >
-                🔔 Unread ({stats.unread})
-              </button>
-              <button
-                onClick={() => setFilter('LOW_STOCK')}
-                style={{
-                  padding: '12px 24px',
-                  border: filter === 'LOW_STOCK' ? '2px solid #f6ad55' : '2px solid #e2e8f0',
-                  background: filter === 'LOW_STOCK' ? 'linear-gradient(135deg, #f6ad55 0%, #ed8936 100%)' : 'white',
-                  color: filter === 'LOW_STOCK' ? 'white' : '#4a5568',
-                  borderRadius: '12px',
-                  fontWeight: '700',
-                  cursor: 'pointer',
-                  transition: 'all 0.3s',
-                  boxShadow: filter === 'LOW_STOCK' ? '0 4px 15px rgba(246, 173, 85, 0.3)' : 'none'
-                }}
-              >
-                ⚠️ Low Stock ({stats.lowStock})
-              </button>
-              <button
-                onClick={() => setFilter('OUT_OF_STOCK')}
-                style={{
-                  padding: '12px 24px',
-                  border: filter === 'OUT_OF_STOCK' ? '2px solid #fc8181' : '2px solid #e2e8f0',
-                  background: filter === 'OUT_OF_STOCK' ? 'linear-gradient(135deg, #fc8181 0%, #f56565 100%)' : 'white',
-                  color: filter === 'OUT_OF_STOCK' ? 'white' : '#4a5568',
-                  borderRadius: '12px',
-                  fontWeight: '700',
-                  cursor: 'pointer',
-                  transition: 'all 0.3s',
-                  boxShadow: filter === 'OUT_OF_STOCK' ? '0 4px 15px rgba(252, 129, 129, 0.3)' : 'none'
-                }}
-              >
-                🚨 Out of Stock ({stats.outOfStock})
-              </button>
+        {/* Alerts List */}
+        <div className="space-y-3">
+          {loading ? (
+            <div className="py-20 text-center space-y-2">
+              <div className="w-8 h-8 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto" />
+              <p className="text-xs text-slate-500 font-medium">Evaluating inventory levels...</p>
             </div>
-          </div>
+          ) : filteredAlerts.length === 0 ? (
+            <div className="py-16 text-center space-y-2 cloud-card p-8">
+              <CheckCircle2 className="w-12 h-12 text-emerald-500 mx-auto" />
+              <h3 className="text-base font-bold font-display text-slate-900">All Levels Nominal</h3>
+              <p className="text-xs text-slate-500 max-w-sm mx-auto font-medium">
+                No active incidents found matching your current filter criteria.
+              </p>
+            </div>
+          ) : (
+            filteredAlerts.map((alert) => {
+              const isResolved = alert.status === 'RESOLVED';
+              const isOut = alert.type === 'OUT_OF_STOCK';
 
-          {/* Alerts List */}
-          <div style={{background: 'white', padding: '30px', borderRadius: '16px', boxShadow: '0 5px 20px rgba(0,0,0,0.08)'}}>
-            <h2 style={{fontSize: '24px', fontWeight: '800', color: '#1a202c', marginBottom: '25px'}}>
-              {filter === 'all' ? 'All Alerts' : filter === 'unread' ? 'Unread Alerts' : `${filter.replace('_', ' ')} Alerts`} ({filteredAlerts.length})
-            </h2>
+              return (
+                <div
+                  key={alert.id}
+                  className={`p-5 rounded-2xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-2xs ${
+                    isResolved
+                      ? 'bg-slate-50 border-slate-200 opacity-70'
+                      : isOut
+                      ? 'bg-rose-50/60 border-rose-200'
+                      : 'bg-amber-50/60 border-amber-200'
+                  }`}
+                >
+                  <div className="flex items-start gap-4">
+                    <div
+                      className={`p-3 rounded-xl border shrink-0 ${
+                        isResolved
+                          ? 'bg-white text-slate-500 border-slate-200'
+                          : isOut
+                          ? 'bg-white text-rose-600 border-rose-200 shadow-2xs'
+                          : 'bg-white text-amber-600 border-amber-200 shadow-2xs'
+                      }`}
+                    >
+                      {isResolved ? (
+                        <CheckCircle2 className="w-5 h-5" />
+                      ) : (
+                        <AlertTriangle className="w-5 h-5" />
+                      )}
+                    </div>
 
-            {loading ? (
-              <div style={{textAlign: 'center', padding: '60px', color: '#a0aec0'}}>
-                <div style={{fontSize: '48px', marginBottom: '20px'}}>⏳</div>
-                <p style={{fontSize: '18px', fontWeight: '600'}}>Loading alerts...</p>
-              </div>
-            ) : filteredAlerts.length === 0 ? (
-              <div style={{textAlign: 'center', padding: '60px', color: '#a0aec0'}}>
-                <div style={{fontSize: '64px', marginBottom: '20px'}}>✅</div>
-                <h3 style={{fontSize: '24px', fontWeight: '700', color: '#4a5568', marginBottom: '10px'}}>No alerts found</h3>
-                <p style={{fontSize: '16px'}}>
-                  {filter === 'all' ? 'All clear! No alerts at the moment.' : `No ${filter.replace('_', ' ')} alerts.`}
-                </p>
-              </div>
-            ) : (
-              <div style={{display: 'flex', flexDirection: 'column', gap: '16px'}}>
-                {filteredAlerts.map((alert) => (
-                  <div
-                    key={alert.id}
-                    style={{
-                      padding: '24px',
-                      borderRadius: '14px',
-                      border: `2px solid ${alert.status === 'RESOLVED' ? '#e2e8f0' : getAlertColor(alert.type)}`,
-                      background: alert.status === 'RESOLVED' ? 'white' : `linear-gradient(135deg, ${getAlertColor(alert.type)}10 0%, ${getAlertColor(alert.type)}05 100%)`,
-                      transition: 'all 0.3s',
-                      boxShadow: alert.status === 'RESOLVED' ? '0 2px 8px rgba(0,0,0,0.05)' : `0 4px 15px ${getAlertColor(alert.type)}40`,
-                      cursor: 'pointer',
-                      position: 'relative',
-                      overflow: 'hidden'
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.transform = 'translateY(-4px)';
-                      e.currentTarget.style.boxShadow = `0 8px 25px ${getAlertColor(alert.type)}50`;
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.transform = 'translateY(0)';
-                      e.currentTarget.style.boxShadow = alert.status === 'RESOLVED' ? '0 2px 8px rgba(0,0,0,0.05)' : `0 4px 15px ${getAlertColor(alert.type)}40`;
-                    }}
-                  >
-                    <div style={{display: 'flex', gap: '20px', alignItems: 'flex-start'}}>
-                      <div style={{
-                        fontSize: '48px',
-                        flexShrink: '0',
-                        opacity: alert.status === 'RESOLVED' ? '0.5' : '1',
-                        transition: 'all 0.3s'
-                      }}>
-                        {getAlertIcon(alert.type)}
+                    <div className="space-y-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h4 className="text-sm font-bold text-slate-900 font-display">
+                          {alert.productName || 'Fashion Item Alert'}
+                        </h4>
+                        <StatusBadge status={alert.status} />
+                        {alert.type && (
+                          <span className="px-2 py-0.5 rounded-md bg-white border border-slate-200 text-[10px] font-mono font-bold text-slate-600">
+                            {alert.type}
+                          </span>
+                        )}
                       </div>
 
-                      <div style={{flex: '1'}}>
-                        <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px'}}>
-                          <div>
-                            <h3 style={{
-                              fontSize: '20px',
-                              fontWeight: '800',
-                              color: '#1a202c',
-                              marginBottom: '6px',
-                              textTransform: 'capitalize'
-                            }}>
-                              {alert.type.replace('_', ' ')}
-                            </h3>
-                            <p style={{fontSize: '15px', color: '#4a5568', margin: '0', fontWeight: '500'}}>
-                              {alert.message}
-                            </p>
-                          </div>
-                          {alert.status === 'ACTIVE' && (
-                            <span style={{
-                              background: getAlertColor(alert.type),
-                              color: 'white',
-                              padding: '6px 14px',
-                              borderRadius: '20px',
-                              fontSize: '12px',
-                              fontWeight: '700',
-                              textTransform: 'uppercase',
-                              letterSpacing: '0.5px',
-                              boxShadow: `0 4px 12px ${getAlertColor(alert.type)}40`
-                            }}>
-                              ACTIVE
-                            </span>
-                          )}
-                        </div>
+                      <p className="text-xs text-slate-600 leading-relaxed font-medium">
+                        {alert.message ||
+                          `Current floor stock (${alert.currentStock || 0}) is below minimum threshold limit (${
+                            alert.threshold || 5
+                          }).`}
+                      </p>
 
-                        <div style={{
-                          background: 'rgba(102, 126, 234, 0.1)',
-                          padding: '14px 18px',
-                          borderRadius: '10px',
-                          marginTop: '12px',
-                          borderLeft: '4px solid #667eea'
-                        }}>
-                          <p style={{margin: '0', fontSize: '14px', color: '#2d3748'}}>
-                            <strong style={{color: '#667eea'}}>Product:</strong> {alert.productName}
-                          </p>
-                          <p style={{margin: '6px 0 0 0', fontSize: '14px', color: '#4a5568'}}>
-                            <strong>Product ID:</strong> {alert.productId}
-                          </p>
-                        </div>
-
-                        <div style={{display: 'flex', gap: '12px', marginTop: '16px', flexWrap: 'wrap', alignItems: 'center'}}>
-                          <span style={{fontSize: '13px', color: '#718096', fontWeight: '600'}}>
-                            📅 {new Date(alert.createdAt).toLocaleString('en-IN', {
-                              day: '2-digit',
-                              month: 'short',
-                              year: 'numeric',
-                              hour: '2-digit',
-                              minute: '2-digit'
-                            })}
-                          </span>
-                          {alert.status === 'ACTIVE' && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleMarkAsRead(alert.id);
-                              }}
-                              style={{
-                                padding: '8px 16px',
-                                background: 'linear-gradient(135deg, #48bb78 0%, #38a169 100%)',
-                                color: 'white',
-                                border: 'none',
-                                borderRadius: '8px',
-                                fontSize: '13px',
-                                fontWeight: '700',
-                                cursor: 'pointer',
-                                transition: 'all 0.3s',
-                                boxShadow: '0 4px 12px rgba(72, 187, 120, 0.3)'
-                              }}
-                              onMouseEnter={(e) => {
-                                e.currentTarget.style.transform = 'scale(1.05)';
-                                e.currentTarget.style.boxShadow = '0 6px 20px rgba(72, 187, 120, 0.4)';
-                              }}
-                              onMouseLeave={(e) => {
-                                e.currentTarget.style.transform = 'scale(1)';
-                                e.currentTarget.style.boxShadow = '0 4px 12px rgba(72, 187, 120, 0.3)';
-                              }}
-                            >
-                              ✓ Resolve
-                            </button>
-                          )}
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDeleteAlert(alert.id);
-                            }}
-                            style={{
-                              padding: '8px 16px',
-                              background: 'linear-gradient(135deg, #fc8181 0%, #f56565 100%)',
-                              color: 'white',
-                              border: 'none',
-                              borderRadius: '8px',
-                              fontSize: '13px',
-                              fontWeight: '700',
-                              cursor: 'pointer',
-                              transition: 'all 0.3s',
-                              boxShadow: '0 4px 12px rgba(252, 129, 129, 0.3)'
-                            }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.transform = 'scale(1.05)';
-                              e.currentTarget.style.boxShadow = '0 6px 20px rgba(252, 129, 129, 0.4)';
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.transform = 'scale(1)';
-                              e.currentTarget.style.boxShadow = '0 4px 12px rgba(252, 129, 129, 0.3)';
-                            }}
-                          >
-                            🗑️ Delete
-                          </button>
-                        </div>
+                      <div className="flex items-center gap-4 text-[11px] text-slate-500 pt-1 font-medium">
+                        <span>Threshold Limit: <strong className="text-slate-800">{alert.threshold || 5}</strong></span>
+                        <span>Available Units: <strong className="text-rose-600 font-bold">{alert.currentStock || 0}</strong></span>
+                        {alert.createdAt && <span>Recorded: {new Date(alert.createdAt).toLocaleDateString()}</span>}
                       </div>
                     </div>
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
+
+                  <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+                    {!isResolved && (
+                      <button
+                        onClick={() => handleResolveAlert(alert.id)}
+                        className="px-3.5 py-1.5 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 shadow-xs transition-all"
+                      >
+                        Acknowledge & Clear
+                      </button>
+                    )}
+                    <button
+                      onClick={() => confirmDelete(alert.id)}
+                      className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors"
+                      title="Purge Incident"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              );
+            })
+          )}
         </div>
       </div>
-    </div>
+
+      <ConfirmModal
+        isOpen={showDeleteModal}
+        title="Purge Incident Record"
+        message="Are you sure you want to delete this alert record from the incident log?"
+        confirmText="Purge Alert"
+        isDestructive
+        onConfirm={handleDeleteAlert}
+        onCancel={() => setShowDeleteModal(false)}
+      />
+    </AppLayout>
   );
 }
 
