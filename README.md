@@ -1,64 +1,166 @@
-# Inventra - Intelligent Inventory Management System
+# 👗 INVENTRA — Smart Fashion Retail Cloud & Inventory Management System
 
-A comprehensive full-stack inventory management system built with Spring Boot and React, designed for fashion retail businesses.
+> **Enterprise Operating System for Modern Fashion & Apparel Retail Businesses**  
+> Built with **Spring Boot 3 (Java 21/17)**, **React 19 + Vite**, **TiDB Cloud MySQL (25GB)**, **Firebase Authentication**, and **Spring Security JWT**.
 
-## 🚀 Features
-##demo video --https://drive.google.com/drive/folders/1Ak51j0V8khUL8yzsVK9SpxzvISoLPK7r?usp=sharing
-### 👑 Admin Features
-- **User Management**: Create, approve, reject, and delete users
-- **Product Management**: Full CRUD operations for fashion products
-- **Inventory Control**: Complete access to all inventory data
-- **Reports & Analytics**: Comprehensive reporting system
-- **System Settings**: Configure system-wide settings
+---
 
-### 👔 Manager Features  
-- **Inventory Viewing**: Access to all inventory data
-- **Stock Approval**: Approve stock update requests
-- **Reports Access**: View inventory and transaction reports
-- **Staff Monitoring**: Monitor staff activities and performance
-- **Alert Management**: View and resolve inventory alerts
+## 🌐 Live Deployment Links
 
-### 👨‍💻 Staff Features
-- **Stock Management**: Add stock entries (stock in/out)
-- **Product Updates**: Update product quantities
-- **Assigned Inventory**: View only assigned inventory sections
-- **Basic Operations**: Core inventory management tasks
+| Service | Platform | Live URL | Status |
+| :--- | :--- | :--- | :---: |
+| 🚀 **Web Application (Frontend)** | **Vercel** | [https://inventra-fashion-retail.vercel.app](https://inventra-fashion-retail.vercel.app) *(or your Vercel URL)* | 🟢 **LIVE** |
+| ⚙️ **REST API Server (Backend)** | **Render** | [https://inventra-backend-1ctb.onrender.com](https://inventra-backend-1ctb.onrender.com) | 🟢 **LIVE** |
+| 🗄️ **Cloud Database (MySQL)** | **TiDB Cloud Serverless** | `gateway01.ap-southeast-1.prod.aws.tidbcloud.com:4000` (Singapore) | 🟢 **LIVE (25GB)** |
+| 🎥 **Project Demo Video** | **Google Drive** | [Watch Demo Video](https://drive.google.com/drive/folders/1Ak51j0V8khUL8yzsVK9SpxzvISoLPK7r?usp=sharing) | 🎬 **READY** |
 
-## 🛠️ Technology Stack
+---
 
-### Backend
-- **Framework**: Spring Boot 3.2.1
-- **Security**: Spring Security with JWT Authentication
-- **Database**: MySQL 8.0+ with JPA/Hibernate
-- **Build Tool**: Maven 3.6+
-- **Java Version**: 17+
+## 📸 Architecture Diagram
 
-### Frontend
-- **Framework**: React 19.2.0
-- **Build Tool**: Vite 7.2.4
-- **Styling**: Tailwind CSS 4.1.18
-- **HTTP Client**: Axios 1.13.2
-- **Routing**: React Router DOM 7.12.0
-- **Icons**: Lucide React 0.562.0
+```mermaid
+graph TD
+    subgraph Client Tier
+        UI[React 19 + Vite SPA<br/>Hosted on Vercel]
+        GAuth[Google Sign-In Popup<br/>Firebase Auth SDK]
+    end
 
-## 📋 Prerequisites
+    subgraph API Tier
+        Render[Spring Boot 3.2.1 REST API<br/>Docker on Render Cloud<br/>Port 8888]
+        Security[Spring Security + JWT Filter<br/>BCrypt Password Encoder]
+        SMTP[Gmail SMTP Service<br/>TLS Port 587]
+    end
 
-- Java 17 or higher
-- Node.js 18+ and npm
-- MySQL 8.0+
-- Maven 3.6+
+    subgraph Data Tier
+        TiDB[(TiDB Cloud Serverless MySQL<br/>25GB Free Cloud Storage<br/>AWS Singapore)]
+    end
 
-## 🚀 Quick Start
-
-### 1. Clone the Repository
-```bash
-git clone https://github.com/ravvahemanth/inventra_-infy-internship.git
-cd inventra_-infy-internship
+    UI -->|HTTPS REST Requests & JWT| Security
+    GAuth -->|ID Token / Profile| UI
+    Security --> Render
+    Render -->|Cloud JDBC with TLS| TiDB
+    Render -->|6-Digit OTP Delivery| SMTP
 ```
 
-### 2. Database Setup
-```sql
-CREATE DATABASE fashion_retail_db;
+---
+
+## 👑 Role-Based Access Control (RBAC)
+
+INVENTRA comes out-of-the-box with multi-tier role authorization:
+
+### 1. 🛡️ Administrator (`ADMIN`)
+* **User Management**: Approve pending manager registrations, toggle roles, view user directories, and delete accounts.
+* **Product Catalog**: Create, edit, and delete apparel, footwear, accessories, and seasonal collections.
+* **Variant Matrices**: Configure sizes (XS–XXL, 6–11) and colors (Black, White, Blue, Red, Gold, etc.).
+* **System Reports & Audit**: Complete transaction ledgers with audit logs and timestamped stock adjustments.
+
+### 2. 👔 Store Manager (`MANAGER`)
+* **Inventory Overview**: Full real-time stock matrix monitoring across categories.
+* **Stock In / Stock Out**: Perform stock adjustments with reason tracking.
+* **Risk Sentinel**: View low-stock threshold warnings and restock recommendations.
+* **Transactions Log**: View historical store movements.
+
+### 3. 👤 Floor Staff (`STAFF`)
+* **Instant Catalog Lookup**: Search products, view available sizes, colors, and prices on the sales floor.
+* **Stock Operations**: Record basic stock in/out events.
+* **Profile Settings**: Manage personal account credentials.
+
+---
+
+## 🔐 Default Demo Accounts
+
+| Role | Username | Corporate Email | Password | Access Rights |
+| :--- | :--- | :--- | :--- | :--- |
+| 🛡️ **Admin** | `admin` | **`admin@inventra.com`** | **`admin123`** | Full System & User Management |
+| 👔 **Manager** | `manager` | **`manager@inventra.com`** | **`manager123`** | Store Inventory & Approvals |
+| 👤 **Staff** | `staff` | **`staff@inventra.com`** | **`staff123`** | Catalog & Stock In/Out |
+
+---
+
+## ✨ Key Features & Capabilities
+
+* ⚡ **Live Variant Inventory**: Dynamic matrix tracking for apparel sizes (S, M, L, XL, XXL) and color variants.
+* 🔐 **Hybrid Authentication**:
+  * Corporate Email & Encrypted Password (BCrypt + JWT).
+  * 1-Click **Sign In with Google** (Firebase Auth integration).
+* 📧 **Automated OTP Password Reset**:
+  * Real Gmail SMTP delivery to user inboxes with 6-digit OTP expiration (10 minutes).
+  * Built-in security checks preventing unauthorized reset attempts for unregistered emails.
+* 🚨 **Smart Low-Stock Sentinel**: Automated alerts for products falling below safety thresholds.
+* 📊 **Executive Dashboard**: Live revenue metrics, stock counts, category distribution charts, and activity feeds.
+* 🎨 **Modern Fashion Aesthetic**: Glassmorphism UI, Outfit/Inter typography, responsive mobile navigation.
+
+---
+
+## 🛠️ Complete Technology Stack
+
+### Backend
+* **Language & Runtime**: Java 17 / Java 21
+* **Framework**: Spring Boot 3.2.1 (Spring Web, Spring Security, Spring Data JPA)
+* **JWT Library**: `jjwt-api` / `jjwt-impl` 0.11.5
+* **Mail Delivery**: Spring Mail (`jakarta.mail` with Gmail SMTP)
+* **Cloud Database**: TiDB Cloud Serverless MySQL (AWS Singapore)
+* **Containerization**: Multi-stage Docker build
+
+### Frontend
+* **UI Library**: React 19.2.0
+* **Build Tool**: Vite 7.2.4
+* **Styling**: Tailwind CSS 4.1.18 + Vanilla CSS
+* **Icons**: Lucide React
+* **Social Auth**: Firebase Web SDK v11
+* **Routing**: React Router DOM v7
+* **HTTP Client**: Axios with JWT Request & Response Interceptors
+
+---
+
+## 📦 Project Structure
+
+```text
+Infosys_Project/
+├── Frontend/                           # React 19 + Vite Frontend SPA
+│   ├── src/
+│   │   ├── api/                        # Axios instance and API hooks
+│   │   ├── config/                     # Firebase Auth configuration
+│   │   ├── context/                    # AuthContext, ToastContext
+│   │   ├── pages/
+│   │   │   ├── admin/                  # User Management & Product Admin
+│   │   │   ├── auth/                   # Login, Register, Forgot Password (OTP)
+│   │   │   ├── dashboard/              # Executive Dashboard & Metrics
+│   │   │   ├── fashion/                # Products, Categories, Variants
+│   │   │   └── transactions/           # Stock In / Stock Out Ledgers
+│   │   └── utils/                      # Helper formatters and Axios interceptors
+│   ├── package.json
+│   └── vite.config.js
+│
+├── backend/                            # Spring Boot 3 Java Backend
+│   ├── src/main/java/com/inventory/
+│   │   ├── config/                     # SecurityConfig, DataInitializer
+│   │   ├── controller/                 # Auth, FashionProduct, User, Alert APIs
+│   │   ├── dto/                        # Request/Response DTOs (JWT, OTP, Firebase)
+│   │   ├── model/                      # User, FashionProduct, ProductVariant, Alert
+│   │   ├── repository/                 # Spring Data JPA Repositories
+│   │   ├── security/                   # JwtUtils, JwtAuthFilter, UserPrincipal
+│   │   └── service/                    # AuthService, PasswordResetService, EmailService
+│   ├── src/main/resources/
+│   │   └── application.properties     # Spring datasource & mail configurations
+│   ├── Dockerfile                      # Production multi-stage Docker build
+│   └── pom.xml                         # Maven dependencies
+└── README.md                           # Master Project Documentation
+```
+
+---
+
+## 💻 Local Setup & Running Guide
+
+### 1. Prerequisites
+* **Java**: JDK 17 or JDK 21
+* **Node.js**: Node 18+ and npm
+* **Git**: Installed
+
+### 2. Clone Repository
+```bash
+git clone https://github.com/ravvahemanth/Inventra_inventry_on_fashion_retail.git
+cd Inventra_inventry_on_fashion_retail
 ```
 
 ### 3. Backend Setup
@@ -67,190 +169,49 @@ cd backend
 mvn clean install
 mvn spring-boot:run
 ```
-The backend will start on `http://localhost:8888`
+> Server will boot on `http://localhost:8888` connected to cloud MySQL.
 
 ### 4. Frontend Setup
 ```bash
-cd Frontend
+cd ../Frontend
 npm install
 npm run dev
 ```
-The frontend will start on `http://localhost:5173`
-
-## 🔐 Default Credentials
-
-### Admin Account
-- **Email**: admin@inventra.com
-- **Password**: admin123
-
-### Manager Account  
-- **Email**: manager@inventra.com
-- **Password**: manager123
-
-### Staff Account
-- **Email**: staff@inventra.com  
-- **Password**: staff123
-
-## 📊 Database Configuration
-
-Update `backend/src/main/resources/application.properties`:
-
-```properties
-spring.datasource.url=jdbc:mysql://localhost:3306/fashion_retail_db
-spring.datasource.username=root
-spring.datasource.password=your_password
-```
-
-## 🏗️ Project Structure
-
-```
-inventra/
-├── backend/                 # Spring Boot Backend
-│   ├── src/main/java/
-│   │   └── com/inventory/
-│   │       ├── config/      # Configuration classes
-│   │       ├── controller/  # REST Controllers
-│   │       ├── dto/         # Data Transfer Objects
-│   │       ├── model/       # JPA Entities
-│   │       ├── repository/  # Data Repositories
-│   │       ├── security/    # Security Configuration
-│   │       └── service/     # Business Logic
-│   └── src/main/resources/
-│       └── application.properties
-├── Frontend/                # React Frontend
-│   ├── src/
-│   │   ├── api/            # API Configuration
-│   │   ├── components/     # Reusable Components
-│   │   ├── context/        # React Context
-│   │   ├── pages/          # Page Components
-│   │   ├── services/       # API Services
-│   │   └── utils/          # Utility Functions
-│   └── package.json
-└── README.md
-```
-
-## 🔄 API Endpoints
-
-### Authentication
-- `POST /api/auth/login` - User login
-- `POST /api/auth/register` - User registration
-- `GET /api/auth/me` - Get current user
-
-### Products (Fashion)
-- `GET /api/fashion-products` - Get all products
-- `POST /api/fashion-products` - Create product (Admin only)
-- `PUT /api/fashion-products/{id}` - Update product (Admin only)
-- `DELETE /api/fashion-products/{id}` - Delete product (Admin only)
-
-### Stock Transactions
-- `GET /api/stock-transactions` - Get transactions (Admin/Manager)
-- `POST /api/stock-transactions` - Create transaction (All roles)
-
-### Alerts
-- `GET /api/alerts/active` - Get active alerts (Admin/Manager)
-- `PUT /api/alerts/{id}/resolve` - Resolve alert (Admin/Manager)
-
-### Admin
-- `GET /api/admin/users` - Get all users
-- `PATCH /api/admin/users/{id}/status` - Approve/reject user
-- `DELETE /api/admin/users/{id}` - Delete user
-
-## 🎨 Key Features
-
-### Fashion Product Management
-- **Categories**: Men's/Women's/Kids' Clothing, Footwear, Accessories
-- **Variants**: Size and color combinations with individual stock tracking
-- **Seasons**: Spring, Summer, Autumn, Winter, All-Season
-- **Brands**: Multi-brand support with brand-specific filtering
-
-### Inventory Tracking
-- **Real-time Stock**: Live inventory updates
-- **Low Stock Alerts**: Automatic notifications for low inventory
-- **Stock Transactions**: Complete audit trail of all stock movements
-- **Variant Management**: Track stock by size/color combinations
-
-### User Management
-- **Role-based Access**: Three-tier permission system
-- **Approval Workflow**: Manager registration requires admin approval
-- **User Status**: Pending, Approved, Rejected status tracking
-
-### Alert System
-- **Smart Notifications**: Automatic low stock and out-of-stock alerts
-- **Fashion-specific**: Variant-level alerts for size/color combinations
-- **Alert Management**: Mark as resolved, bulk operations
-
-## 🔒 Security Features
-
-- **JWT Authentication**: Secure token-based authentication
-- **Role-based Authorization**: Method-level security
-- **Password Encryption**: BCrypt hashing
-- **CORS Configuration**: Configurable cross-origin requests
-- **Input Validation**: Comprehensive validation with error handling
-
-## 🧪 Testing
-
-### Backend Testing
-```bash
-cd backend
-mvn test
-```
-
-### Frontend Testing
-```bash
-cd Frontend
-npm test
-```
-
-## 📦 Deployment
-
-### Backend (Production)
-```bash
-cd backend
-mvn clean package -Dmaven.test.skip=true
-java -jar target/inventory-backend-1.0.0.jar
-```
-
-### Frontend (Production)
-```bash
-cd Frontend
-npm run build
-# Deploy the dist/ folder to your web server
-```
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
-## 📝 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 👥 Team
-
-- **Developer**: Hemanth Ravva
-- **Organization**: Infosys Internship Program
-- **Project Type**: Full-Stack Inventory Management System
-
-## 📞 Support
-
-For support and questions:
-- **Email**: inventrainfosys@gmail.com
-- **GitHub Issues**: [Create an issue](https://github.com/ravvahemanth/inventra_-infy-internship/issues)
-
-## 🎯 Future Enhancements
-
-- [ ] Mobile application (React Native)
-- [ ] Advanced analytics dashboard
-- [ ] Barcode scanning integration
-- [ ] Multi-warehouse support
-- [ ] Supplier management
-- [ ] Purchase order system
-- [ ] Integration with e-commerce platforms
+> Web UI will launch on `http://localhost:5173`.
 
 ---
 
-**Built with ❤️ for efficient inventory management**
+## 🚀 Deployment Instructions
+
+### 1. Deploy Cloud Database (TiDB Cloud - 25GB Free)
+1. Sign up on [TiDB Cloud](https://tidbcloud.com/) and create a **Free Serverless Cluster**.
+2. Note your **Host**, **User**, and **Password**.
+
+### 2. Deploy Backend (Render Web Service)
+1. Create a new **Web Service** on [Render.com](https://render.com/).
+2. Select your GitHub repository.
+3. Configure settings:
+   * **Language**: `Docker`
+   * **Dockerfile Path**: `backend/Dockerfile`
+   * **Docker Context**: `backend`
+   * **Instance Type**: `Free`
+4. Add Environment Variables:
+   * `SPRING_DATASOURCE_URL`: `jdbc:mysql://<host>:4000/fashion_retail_db?sslMode=VERIFY_IDENTITY&createDatabaseIfNotExist=true`
+   * `SPRING_DATASOURCE_USERNAME`: `<username>`
+   * `SPRING_DATASOURCE_PASSWORD`: `<password>`
+   * `SPRING_MAIL_USERNAME`: `inventrainfosys@gmail.com`
+   * `SPRING_MAIL_PASSWORD`: `<gmail_app_password>`
+   * `APP_EMAIL_MOCK`: `false`
+
+### 3. Deploy Frontend (Vercel)
+1. Import repo on [Vercel.com](https://vercel.com/).
+2. Set **Root Directory** to `Frontend`.
+3. Add Environment Variable:
+   * `VITE_API_BASE_URL` = `https://<your-render-url>.onrender.com`
+4. Click **Deploy**.
+
+---
+
+## 📄 License & Attribution
+Developed as part of the **Infosys Springboard Internship / Capstone Project**.  
+All rights reserved © 2026 INVENTRA Retail Cloud.
