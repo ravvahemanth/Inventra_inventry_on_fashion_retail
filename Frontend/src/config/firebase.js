@@ -2,9 +2,9 @@ import { initializeApp } from "firebase/app";
 import { 
   getAuth, 
   GoogleAuthProvider, 
-  signInWithPopup,
-  signInWithRedirect,
-  getRedirectResult,
+  signInWithPopup, 
+  signInWithRedirect, 
+  getRedirectResult, 
   signOut 
 } from "firebase/auth";
 
@@ -18,14 +18,18 @@ const firebaseConfig = {
   measurementId: "G-W9HWWGE63Q"
 };
 
-// Initialize Firebase
+// Initialize Firebase App
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
 
-// Custom Google Sign-In helper with redirect fallback for popup blockers
+// Configure Google Provider custom parameters
+googleProvider.setCustomParameters({ 
+  prompt: 'select_account' 
+});
+
+// Custom Google Sign-In helper with popup and redirect fallback
 export const signInWithGoogle = async () => {
-  googleProvider.setCustomParameters({ prompt: 'select_account' });
   try {
     const result = await signInWithPopup(auth, googleProvider);
     const user = result.user;
@@ -45,6 +49,27 @@ export const signInWithGoogle = async () => {
       return null;
     }
     throw error;
+  }
+};
+
+// Map Firebase Auth error codes to helpful, user-friendly messages
+export const mapFirebaseAuthError = (error) => {
+  if (!error) return 'Authentication failed. Please try again.';
+  
+  switch (error.code) {
+    case 'auth/popup-closed-by-user':
+    case 'auth/cancelled-popup-request':
+      return null; // Quietly ignore user cancellation or double-click
+    case 'auth/unauthorized-domain':
+      return `Domain (${window.location.hostname}) is not authorized in Firebase. Please add '${window.location.hostname}' to Firebase Console > Authentication > Settings > Authorized domains.`;
+    case 'auth/operation-not-allowed':
+      return 'Google sign-in is not enabled in Firebase Console. Please enable Google provider in Firebase Console > Authentication > Sign-in method.';
+    case 'auth/network-request-failed':
+      return 'Network connection error. Please verify your internet connection.';
+    case 'auth/account-exists-with-different-credential':
+      return 'An account already exists with this email address under different credentials.';
+    default:
+      return error.message || 'Google sign-in failed. Please try again or sign in with your corporate email.';
   }
 };
 
