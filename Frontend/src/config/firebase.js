@@ -2,7 +2,9 @@ import { initializeApp } from "firebase/app";
 import { 
   getAuth, 
   GoogleAuthProvider, 
-  signInWithPopup, 
+  signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   signOut 
 } from "firebase/auth";
 
@@ -21,21 +23,30 @@ const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
 
-// Custom Google Sign-In helper
+// Custom Google Sign-In helper with redirect fallback for popup blockers
 export const signInWithGoogle = async () => {
   googleProvider.setCustomParameters({ prompt: 'select_account' });
-  const result = await signInWithPopup(auth, googleProvider);
-  const user = result.user;
-  const idToken = await user.getIdToken();
-  
-  return {
-    uid: user.uid,
-    email: user.email,
-    displayName: user.displayName || user.email.split('@')[0],
-    photoURL: user.photoURL,
-    idToken: idToken
-  };
+  try {
+    const result = await signInWithPopup(auth, googleProvider);
+    const user = result.user;
+    const idToken = await user.getIdToken();
+    
+    return {
+      uid: user.uid,
+      email: user.email,
+      displayName: user.displayName || user.email.split('@')[0],
+      photoURL: user.photoURL,
+      idToken: idToken
+    };
+  } catch (error) {
+    if (error.code === 'auth/popup-blocked') {
+      console.warn("Popup blocked by browser. Falling back to redirect...");
+      await signInWithRedirect(auth, googleProvider);
+      return null;
+    }
+    throw error;
+  }
 };
 
-export { signInWithPopup, signOut };
+export { signInWithPopup, signInWithRedirect, getRedirectResult, signOut };
 export default app;
