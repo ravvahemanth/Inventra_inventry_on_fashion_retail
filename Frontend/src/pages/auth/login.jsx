@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Mail, Lock, ArrowRight, Eye, EyeOff, Cloud, ShieldCheck, Layers, Sparkles, CheckCircle2, TrendingUp } from 'lucide-react';
 import { login, firebaseLogin } from '../../services/authService';
-import { signInWithGoogle } from '../../config/firebase';
+import { auth, signInWithGoogle, getRedirectResult } from '../../config/firebase';
 import { useToast } from '../../context/ToastContext';
 
 function Login() {
@@ -15,10 +15,40 @@ function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  useEffect(() => {
+    // Process redirect result if popup was blocked
+    const processRedirect = async () => {
+      try {
+        const result = await getRedirectResult(auth);
+        if (result && result.user) {
+          setLoading(true);
+          const user = result.user;
+          const idToken = await user.getIdToken();
+          const firebaseUserData = {
+            uid: user.uid,
+            email: user.email,
+            displayName: user.displayName || user.email.split('@')[0],
+            photoURL: user.photoURL,
+            idToken: idToken
+          };
+          const response = await firebaseLogin(firebaseUserData);
+          toast.success(`Welcome, ${response.data.user?.username || firebaseUserData.displayName}!`);
+          navigate('/dashboard');
+        }
+      } catch (err) {
+        console.error("Redirect auth error:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    processRedirect();
+  }, [navigate, toast]);
+
   const handleGoogleSignIn = async () => {
     setLoading(true);
     try {
       const firebaseUserData = await signInWithGoogle();
+      if (!firebaseUserData) return; // Handled by redirect fallback
       const response = await firebaseLogin(firebaseUserData);
       toast.success(`Welcome, ${response.data.user?.username || firebaseUserData.displayName}!`);
       navigate('/dashboard');
