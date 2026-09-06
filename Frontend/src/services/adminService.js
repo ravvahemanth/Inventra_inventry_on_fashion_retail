@@ -1,21 +1,8 @@
-import axios from 'axios';
 import axiosInstance from '../utils/axiosConfig';
-
-
-const API_URL = 'http://localhost:8888/api/admin';
-
-// Set up axios interceptor to add token
-axios.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-});
 
 export const getPendingUsers = async () => {
   try {
-    const response = await axios.get(`${API_URL}/pending-users`);
+    const response = await axiosInstance.get('/admin/pending-users');
     return response;
   } catch (error) {
     throw error.response?.data || error;
@@ -24,7 +11,7 @@ export const getPendingUsers = async () => {
 
 export const getAllUsers = async () => {
   try {
-    const response = await axios.get(`${API_URL}/users`);
+    const response = await axiosInstance.get('/admin/users');
     return response;
   } catch (error) {
     throw error.response?.data || error;
@@ -33,7 +20,7 @@ export const getAllUsers = async () => {
 
 export const approveUser = async (userId) => {
   try {
-    const response = await axios.patch(`${API_URL}/users/${userId}/status`, {
+    const response = await axiosInstance.patch(`/admin/users/${userId}/status`, {
       status: 'approved'
     });
     return response;
@@ -44,7 +31,7 @@ export const approveUser = async (userId) => {
 
 export const rejectUser = async (userId) => {
   try {
-    const response = await axios.patch(`${API_URL}/users/${userId}/status`, {
+    const response = await axiosInstance.patch(`/admin/users/${userId}/status`, {
       status: 'rejected'
     });
     return response;
@@ -55,7 +42,7 @@ export const rejectUser = async (userId) => {
 
 export const deleteUser = async (userId) => {
   try {
-    const response = await axios.delete(`${API_URL}/users/${userId}`);
+    const response = await axiosInstance.delete(`/admin/users/${userId}`);
     return response;
   } catch (error) {
     throw error.response?.data || error;
@@ -64,7 +51,7 @@ export const deleteUser = async (userId) => {
 
 export const getDashboardStats = async () => {
   try {
-    const response = await axios.get(`${API_URL}/stats`);
+    const response = await axiosInstance.get('/admin/stats');
     return response;
   } catch (error) {
     throw error.response?.data || error;

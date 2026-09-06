@@ -1,90 +1,68 @@
-import axios from 'axios';
 import axiosInstance from '../utils/axiosConfig';
-
-
-const rawBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8888';
-const API_URL = `${rawBaseUrl.replace(/\/$/, '')}/api/auth`;
-
-// Set up axios defaults
-axios.defaults.headers.common['Content-Type'] = 'application/json';
-
-// Function to set auth token
-const setAuthToken = (token) => {
-  if (token) {
-    axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-  } else {
-    delete axios.defaults.headers.common['Authorization'];
-  }
-};
-
-// Set token on app load if available
-const token = localStorage.getItem('token');
-if (token) {
-  setAuthToken(token);
-}
 
 export const login = async (credentials) => {
   try {
-    // Send email and password to backend
     const loginData = {
       email: credentials.email,
       password: credentials.password
     };
     
-    const response = await axios.post(`${API_URL}/login`, loginData);
+    const response = await axiosInstance.post('/auth/login', loginData);
     
-    if (response.data.token) {
+    if (response.data && response.data.token) {
       localStorage.setItem('token', response.data.token);
-      localStorage.setItem('userEmail', response.data.user.email);
-      localStorage.setItem('userRole', response.data.user.role.toUpperCase());
-      localStorage.setItem('username', response.data.user.username);
-      
-      // Set token for future requests
-      setAuthToken(response.data.token);
+      if (response.data.user) {
+        localStorage.setItem('userEmail', response.data.user.email || credentials.email);
+        localStorage.setItem('userRole', (response.data.user.role || 'USER').toUpperCase());
+        localStorage.setItem('username', response.data.user.username || 'User');
+      }
     }
     
     return response;
   } catch (error) {
-    throw error.response?.data || error;
+    const message = error.response?.data?.message || error.response?.data?.error || error.message || 'Login failed';
+    throw new Error(message);
   }
 };
 
 export const firebaseLogin = async (firebaseUserData) => {
   try {
-    const response = await axios.post(`${API_URL}/firebase-login`, firebaseUserData);
+    const response = await axiosInstance.post('/auth/firebase-login', firebaseUserData);
 
-    if (response.data.token) {
+    if (response.data && response.data.token) {
       localStorage.setItem('token', response.data.token);
-      localStorage.setItem('userEmail', response.data.user.email);
-      localStorage.setItem('userRole', response.data.user.role.toUpperCase());
-      localStorage.setItem('username', response.data.user.username);
-      
-      setAuthToken(response.data.token);
+      if (response.data.user) {
+        localStorage.setItem('userEmail', response.data.user.email);
+        localStorage.setItem('userRole', (response.data.user.role || 'USER').toUpperCase());
+        localStorage.setItem('username', response.data.user.username);
+      }
     }
 
     return response;
   } catch (error) {
-    throw error.response?.data || error;
+    const message = error.response?.data?.message || error.response?.data?.error || error.message || 'Google sign-in failed';
+    throw new Error(message);
   }
 };
 
 export const register = async (userData) => {
   try {
-    const response = await axios.post(`${API_URL}/register`, {
+    const response = await axiosInstance.post('/auth/register', {
       username: userData.username || userData.email.split('@')[0],
       email: userData.email,
       password: userData.password,
-      role: userData.role || 'staff' // Default to staff, can be manager
+      role: userData.role || 'staff'
     });
     return response;
   } catch (error) {
-    throw error.response?.data || error;
+    const message = error.response?.data?.message || error.response?.data?.error || error.message || 'Registration failed';
+    throw new Error(message);
   }
 };
 
 export const getCurrentUser = async () => {
   try {
-    const response = await axios.get(`${API_URL}/me`);
+    const response = await axiosInstance.get('/auth/me');
     return response;
   } catch (error) {
     throw error.response?.data || error;
@@ -93,25 +71,27 @@ export const getCurrentUser = async () => {
 
 export const forgotPassword = async (email) => {
   try {
-    const response = await axios.post(`${API_URL}/forgot-password`, { email });
+    const response = await axiosInstance.post('/auth/forgot-password', { email });
     return response;
   } catch (error) {
-    throw error.response?.data || error;
+    const message = error.response?.data?.message || error.response?.data?.error || error.message || 'Failed to send OTP';
+    throw new Error(message);
   }
 };
 
 export const verifyOtp = async (email, otp) => {
   try {
-    const response = await axios.post(`${API_URL}/verify-otp`, { email, otp });
+    const response = await axiosInstance.post('/auth/verify-otp', { email, otp });
     return response;
   } catch (error) {
-    throw error.response?.data || error;
+    const message = error.response?.data?.message || error.response?.data?.error || error.message || 'Invalid OTP';
+    throw new Error(message);
   }
 };
 
 export const resetPassword = async (email, otp, newPassword, confirmPassword) => {
   try {
-    const response = await axios.post(`${API_URL}/reset-password`, {
+    const response = await axiosInstance.post('/auth/reset-password', {
       email,
       otp,
       newPassword,
@@ -119,21 +99,21 @@ export const resetPassword = async (email, otp, newPassword, confirmPassword) =>
     });
     return response;
   } catch (error) {
-    throw error.response?.data || error;
+    const message = error.response?.data?.message || error.response?.data?.error || error.message || 'Password reset failed';
+    throw new Error(message);
   }
 };
 
 export const logout = async () => {
   try {
-    await axios.post(`${API_URL}/logout`);
+    await axiosInstance.post('/auth/logout');
   } catch (error) {
-    // Continue with logout even if API call fails
+    // Ignore server error on logout
   } finally {
     localStorage.removeItem('token');
     localStorage.removeItem('userEmail');
     localStorage.removeItem('userRole');
     localStorage.removeItem('username');
-    setAuthToken(null);
     window.location.href = '/login';
   }
 };

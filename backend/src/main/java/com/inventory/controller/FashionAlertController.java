@@ -14,7 +14,7 @@ import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/fashion-alerts")
-@CrossOrigin(origins = "http://localhost:3000")
+@CrossOrigin(originPatterns = "*", allowCredentials = "true")
 public class FashionAlertController {
 
     @Autowired

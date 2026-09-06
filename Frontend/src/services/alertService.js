@@ -1,34 +1,16 @@
-import axios from 'axios';
+import axiosInstance from '../utils/axiosConfig';
 
-const API_URL = 'http://localhost:8888/api/alerts';
-
-// Get auth token from localStorage
-const getAuthHeader = () => {
-  const token = localStorage.getItem('token');
-  return {
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json'
-    }
-  };
-};
-
-// ✅ Get all alerts
+// Get all alerts
 export const getAllAlerts = async () => {
   try {
-    const response = await axios.get(API_URL, getAuthHeader());
-    console.log('All Alerts Response:', response.data);
-    // Backend returns { success: true, message: "...", data: [...] }
+    const response = await axiosInstance.get('/alerts');
     return {
       data: {
         alerts: response.data.data || []
       }
     };
   } catch (error) {
-    console.error('Error fetching alerts:', error);
-    // ✅ FIX: Handle 403 Forbidden for STAFF users
     if (error.response?.status === 403) {
-      console.warn('⚠️ Access denied: User does not have permission to view alerts');
       return { 
         data: { alerts: [] },
         error: 'Access denied: Insufficient permissions to view alerts'
@@ -38,19 +20,16 @@ export const getAllAlerts = async () => {
   }
 };
 
-// ✅ Get active alerts only
+// Get active alerts only
 export const getActiveAlerts = async () => {
   try {
-    const response = await axios.get(`${API_URL}/active`, getAuthHeader());
-    console.log('Active Alerts Response:', response.data);
-    
-    // Transform backend response to match your component's expected format
+    const response = await axiosInstance.get('/alerts/active');
     const alerts = (response.data.data || []).map(alert => ({
       alertId: alert.id,
       productId: alert.product?.id,
       productName: alert.product?.name,
       message: alert.message,
-      alertType: alert.type, // LOW_STOCK or OUT_OF_STOCK
+      alertType: alert.type,
       type: alert.type,
       currentStock: alert.product?.quantity,
       minStockLevel: alert.product?.minStockLevel,
@@ -67,10 +46,7 @@ export const getActiveAlerts = async () => {
       }
     };
   } catch (error) {
-    console.error('Error fetching active alerts:', error);
-    // ✅ FIX: Handle 403 Forbidden for STAFF users
     if (error.response?.status === 403) {
-      console.warn('⚠️ Access denied: User does not have permission to view alerts');
       return { 
         data: { alerts: [] },
         error: 'Access denied: Insufficient permissions to view alerts'
@@ -80,12 +56,10 @@ export const getActiveAlerts = async () => {
   }
 };
 
-// ✅ Get recent alerts (top 10)
+// Get recent alerts (top 10)
 export const getRecentAlerts = async () => {
   try {
-    const response = await axios.get(`${API_URL}/recent`, getAuthHeader());
-    console.log('Recent Alerts Response:', response.data);
-    
+    const response = await axiosInstance.get('/alerts/recent');
     const alerts = (response.data.data || []).map(alert => ({
       alertId: alert.id,
       productId: alert.product?.id,
@@ -108,17 +82,14 @@ export const getRecentAlerts = async () => {
       }
     };
   } catch (error) {
-    console.error('Error fetching recent alerts:', error);
     return { data: { alerts: [] } };
   }
 };
 
-// ✅ Get alerts by type (LOW_STOCK or OUT_OF_STOCK)
+// Get alerts by type (LOW_STOCK or OUT_OF_STOCK)
 export const getAlertsByType = async (type) => {
   try {
-    const response = await axios.get(`${API_URL}/type/${type.toUpperCase()}`, getAuthHeader());
-    console.log(`${type} Alerts Response:`, response.data);
-    
+    const response = await axiosInstance.get(`/alerts/type/${type.toUpperCase()}`);
     const alerts = (response.data.data || []).map(alert => ({
       alertId: alert.id,
       productId: alert.product?.id,
@@ -141,60 +112,52 @@ export const getAlertsByType = async (type) => {
       }
     };
   } catch (error) {
-    console.error(`Error fetching ${type} alerts:`, error);
     return { data: { alerts: [] } };
   }
 };
 
-// ✅ Resolve alert
+// Resolve alert
 export const resolveAlert = async (id) => {
   try {
-    const response = await axios.put(`${API_URL}/${id}/resolve`, {}, getAuthHeader());
-    console.log('Resolve Alert Response:', response.data);
+    const response = await axiosInstance.put(`/alerts/${id}/resolve`);
     return response;
   } catch (error) {
-    console.error('Error resolving alert:', error);
     throw error;
   }
 };
 
-// ✅ Mark all alerts as resolved
+// Mark all alerts as resolved
 export const markAllAsRead = async () => {
   try {
-    const response = await axios.put(`${API_URL}/mark-all-resolved`, {}, getAuthHeader());
-    console.log('Mark All Resolved Response:', response.data);
+    const response = await axiosInstance.put('/alerts/mark-all-resolved');
     return response;
   } catch (error) {
-    console.error('Error marking all as resolved:', error);
     throw error;
   }
 };
 
-// ✅ Delete alert (Admin only)
+// Delete alert (Admin only)
 export const deleteAlert = async (id) => {
   try {
-    const response = await axios.delete(`${API_URL}/${id}`, getAuthHeader());
-    console.log('Delete Alert Response:', response.data);
+    const response = await axiosInstance.delete(`/alerts/${id}`);
     return response;
   } catch (error) {
-    console.error('Error deleting alert:', error);
     throw error;
   }
 };
 
-// ✅ Get active alerts count
+// Get active alerts count
 export const getActiveAlertsCount = async () => {
   try {
-    const response = await axios.get(`${API_URL}/active`, getAuthHeader());
+    const response = await axiosInstance.get('/alerts/active');
     const alerts = response.data.data || [];
     return alerts.length;
   } catch (error) {
-    console.error('Error getting alert count:', error);
     return 0;
   }
 };
 
-// ✅ Get alert statistics
+// Get alert statistics
 export const getAlertStats = async () => {
   try {
     const response = await getActiveAlerts();
@@ -213,7 +176,6 @@ export const getAlertStats = async () => {
       resolved: resolved.length
     };
   } catch (error) {
-    console.error('Error getting alert stats:', error);
     return {
       total: 0,
       active: 0,
@@ -224,12 +186,6 @@ export const getAlertStats = async () => {
   }
 };
 
-// Legacy function for compatibility
-export const checkLowStockAlerts = (products) => {
-  console.log('Low stock alerts are handled automatically by backend');
-};
-
-// Export default for compatibility
 export default {
   getAllAlerts,
   getActiveAlerts,
@@ -239,6 +195,5 @@ export default {
   markAllAsRead,
   deleteAlert,
   getActiveAlertsCount,
-  getAlertStats,
-  checkLowStockAlerts
+  getAlertStats
 };
