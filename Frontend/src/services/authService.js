@@ -2,7 +2,8 @@ import axios from 'axios';
 import axiosInstance from '../utils/axiosConfig';
 
 
-const API_URL = 'http://localhost:8888/api/auth';
+const rawBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8888';
+const API_URL = `${rawBaseUrl.replace(/\/$/, '')}/api/auth`;
 
 // Set up axios defaults
 axios.defaults.headers.common['Content-Type'] = 'application/json';
