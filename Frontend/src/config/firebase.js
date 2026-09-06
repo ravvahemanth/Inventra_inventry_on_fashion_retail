@@ -58,8 +58,9 @@ export const mapFirebaseAuthError = (error) => {
   
   switch (error.code) {
     case 'auth/popup-closed-by-user':
+      return 'Google sign-in window was closed before completing. Please try again.';
     case 'auth/cancelled-popup-request':
-      return null; // Quietly ignore user cancellation or double-click
+      return 'Authentication request in progress. Please complete the open sign-in popup.';
     case 'auth/unauthorized-domain':
       return `Domain (${window.location.hostname}) is not authorized in Firebase. Please add '${window.location.hostname}' to Firebase Console > Authentication > Settings > Authorized domains.`;
     case 'auth/operation-not-allowed':

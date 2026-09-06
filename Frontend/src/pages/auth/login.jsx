@@ -75,6 +75,20 @@ function Login() {
     }
   };
 
+  const handleQuickLogin = async (email, password) => {
+    setLoading(true);
+    try {
+      const response = await login({ email, password });
+      toast.success(`Welcome back, ${response.data.user?.username || 'Executive'}!`);
+      window.location.href = '/dashboard';
+    } catch (err) {
+      const errorMsg = err.message || err.error || 'Login failed.';
+      toast.error(errorMsg);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleChange = (e) => {
     setFormData({
       ...formData,
@@ -176,6 +190,40 @@ function Login() {
             <p className="text-sm text-slate-500 font-medium">
               Enter your credentials to access the fashion retail management portal.
             </p>
+          </div>
+
+          {/* 1-Click Instant Demo Role Access */}
+          <div className="p-3.5 bg-indigo-50/70 border border-indigo-100 rounded-2xl space-y-2.5">
+            <div className="flex items-center justify-between text-[11px] font-bold text-indigo-900 uppercase tracking-wider">
+              <span className="flex items-center gap-1.5"><Sparkles className="w-3.5 h-3.5 text-indigo-600" /> Instant Role Clearance</span>
+              <span className="text-[10px] font-semibold text-indigo-500 lowercase">1-click demo</span>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                type="button"
+                onClick={() => handleQuickLogin('admin@inventra.com', 'admin123')}
+                disabled={loading || googleLoading}
+                className="py-2 px-2 rounded-xl bg-white hover:bg-indigo-600 hover:text-white text-indigo-700 border border-indigo-200 text-xs font-bold transition-all shadow-2xs text-center"
+              >
+                👑 Admin
+              </button>
+              <button
+                type="button"
+                onClick={() => handleQuickLogin('manager@inventra.com', 'manager123')}
+                disabled={loading || googleLoading}
+                className="py-2 px-2 rounded-xl bg-white hover:bg-amber-600 hover:text-white text-amber-800 border border-amber-200 text-xs font-bold transition-all shadow-2xs text-center"
+              >
+                📋 Manager
+              </button>
+              <button
+                type="button"
+                onClick={() => handleQuickLogin('staff@inventra.com', 'staff123')}
+                disabled={loading || googleLoading}
+                className="py-2 px-2 rounded-xl bg-white hover:bg-emerald-600 hover:text-white text-emerald-800 border border-emerald-200 text-xs font-bold transition-all shadow-2xs text-center"
+              >
+                🏷️ Floor Staff
+              </button>
+            </div>
           </div>
 
           {/* Google Social Login */}
