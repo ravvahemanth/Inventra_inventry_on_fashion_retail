@@ -105,7 +105,7 @@ function App() {
         <Route
           path="/admin/fashion-stock"
           element={
-            <ProtectedRoute allowedRoles={['ADMIN', 'MANAGER']}>
+            <ProtectedRoute allowedRoles={['ADMIN', 'MANAGER', 'STAFF']}>
               <FashionStockManagement />
             </ProtectedRoute>
           }
@@ -113,7 +113,7 @@ function App() {
         <Route
           path="/manager/stock"
           element={
-            <ProtectedRoute allowedRoles={['ADMIN', 'MANAGER']}>
+            <ProtectedRoute allowedRoles={['ADMIN', 'MANAGER', 'STAFF']}>
               <FashionStockManagement />
             </ProtectedRoute>
           }
@@ -149,7 +149,7 @@ function App() {
         <Route
           path="/transactions"
           element={
-            <ProtectedRoute allowedRoles={['ADMIN', 'MANAGER']}>
+            <ProtectedRoute allowedRoles={['ADMIN', 'MANAGER', 'STAFF']}>
               <AdminTransactions />
             </ProtectedRoute>
           }
@@ -157,7 +157,7 @@ function App() {
         <Route
           path="/admin/transactions"
           element={
-            <ProtectedRoute allowedRoles={['ADMIN', 'MANAGER']}>
+            <ProtectedRoute allowedRoles={['ADMIN', 'MANAGER', 'STAFF']}>
               <AdminTransactions />
             </ProtectedRoute>
           }

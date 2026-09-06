@@ -120,7 +120,7 @@ public class StockTransaction {
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
     
     public enum TransactionType {
-        STOCK_IN, STOCK_OUT
+        STOCK_IN, STOCK_OUT, DAMAGE_LOST, RETURN_RESTOCK
     }
     
     public enum EntityType {

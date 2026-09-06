@@ -45,7 +45,7 @@ function Sidebar({ isOpen, onClose, alertCount = 0 }) {
       name: 'Stock Control',
       path: isAdmin ? '/admin/fashion-stock' : '/manager/stock',
       icon: Boxes,
-      roles: ['ADMIN', 'MANAGER'],
+      roles: ['ADMIN', 'MANAGER', 'STAFF'],
     },
     {
       name: 'Stock Alerts',
@@ -58,7 +58,7 @@ function Sidebar({ isOpen, onClose, alertCount = 0 }) {
       name: 'Audit Ledger',
       path: isAdmin ? '/admin/transactions' : '/transactions',
       icon: ArrowLeftRight,
-      roles: ['ADMIN', 'MANAGER'],
+      roles: ['ADMIN', 'MANAGER', 'STAFF'],
     },
     {
       name: 'Team & Security',

@@ -30,7 +30,7 @@ public class StockTransactionController {
      * Available for MANAGER and ADMIN roles
      */
     @GetMapping
-    @PreAuthorize("hasRole('MANAGER') or hasRole('ADMIN')")
+    @PreAuthorize("hasRole('MANAGER') or hasRole('ADMIN') or hasRole('STAFF')")
     public ResponseEntity<List<StockTransactionResponse>> getAllTransactions() {
         try {
             System.out.println("📋 GET /api/stock-transactions - Fetching all transactions");
@@ -102,11 +102,10 @@ public class StockTransactionController {
     /**
      * Create a new stock transaction
      * POST /api/stock-transactions
-     * ADMIN: Full access, MANAGER: Approve stock updates
-     * STAFF: No access (view only)
+     * Accessible for ADMIN, MANAGER, and Floor STAFF
      */
     @PostMapping
-    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER')")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER') or hasRole('STAFF')")
     public ResponseEntity<?> createTransaction(
             @RequestBody StockTransactionRequest request) {
         try {

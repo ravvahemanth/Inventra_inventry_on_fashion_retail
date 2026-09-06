@@ -63,7 +63,7 @@ public class StockTransactionService {
             type = StockTransaction.TransactionType.valueOf(request.getType());
             System.out.println("  Transaction type: " + type);
         } catch (IllegalArgumentException e) {
-            throw new RuntimeException("Invalid transaction type: " + request.getType() + ". Must be STOCK_IN or STOCK_OUT");
+            throw new RuntimeException("Invalid transaction type: " + request.getType() + ". Must be STOCK_IN, STOCK_OUT, DAMAGE_LOST, or RETURN_RESTOCK");
         }
         
         StockTransaction transaction;
@@ -100,7 +100,7 @@ public class StockTransactionService {
                 .orElseThrow(() -> new RuntimeException("Product not found"));
 
         // Update product quantity
-        if (type == StockTransaction.TransactionType.STOCK_IN) {
+        if (type == StockTransaction.TransactionType.STOCK_IN || type == StockTransaction.TransactionType.RETURN_RESTOCK) {
             product.setQuantity(product.getQuantity() + request.getQuantity());
         } else {
             if (product.getQuantity() < request.getQuantity()) {
@@ -123,32 +123,31 @@ public class StockTransactionService {
      */
     private StockTransaction createFashionProductTransaction(StockTransactionRequest request, 
                                                            StockTransaction.TransactionType type, User user) {
-        System.out.println("  🔍 Looking up fashion product ID: " + request.getFashionProductId());
-        FashionProduct fashionProduct = fashionProductRepository.findById(request.getFashionProductId())
-                .orElseThrow(() -> new RuntimeException("Fashion product not found with ID: " + request.getFashionProductId()));
-        System.out.println("  ✅ Fashion product found: " + fashionProduct.getName());
-        
         System.out.println("  🔍 Looking up variant ID: " + request.getVariantId());
         ProductVariant variant = productVariantRepository.findById(request.getVariantId())
                 .orElseThrow(() -> new RuntimeException("Product variant not found with ID: " + request.getVariantId()));
         System.out.println("  ✅ Variant found: " + variant.getSizeDisplayName() + "/" + variant.getColorDisplayName() + 
                          " (Current stock: " + variant.getQuantity() + ")");
-        
-        // Verify variant belongs to the fashion product
-        if (!variant.getProduct().getId().equals(fashionProduct.getId())) {
-            String errorMsg = "Variant " + request.getVariantId() + " does not belong to fashion product " + 
-                            request.getFashionProductId() + ". Variant belongs to product: " + 
-                            variant.getProduct().getId();
-            System.err.println("  ❌ " + errorMsg);
-            throw new RuntimeException(errorMsg);
+
+        FashionProduct fashionProduct = variant.getProduct();
+        if (fashionProduct == null) {
+            Long prodId = request.getFashionProductId() != null ? request.getFashionProductId() : request.getProductId();
+            if (prodId != null) {
+                fashionProduct = fashionProductRepository.findById(prodId)
+                        .orElseThrow(() -> new RuntimeException("Fashion product not found with ID: " + prodId));
+            }
         }
-        System.out.println("  ✅ Variant belongs to the correct product");
+        
+        if (fashionProduct == null) {
+            throw new RuntimeException("No fashion product associated with variant ID: " + request.getVariantId());
+        }
+        System.out.println("  ✅ Fashion product identified: " + fashionProduct.getName());
 
         // Update variant quantity
         int oldQuantity = variant.getQuantity();
-        if (type == StockTransaction.TransactionType.STOCK_IN) {
+        if (type == StockTransaction.TransactionType.STOCK_IN || type == StockTransaction.TransactionType.RETURN_RESTOCK) {
             variant.setQuantity(variant.getQuantity() + request.getQuantity());
-            System.out.println("  📥 STOCK IN: " + oldQuantity + " + " + request.getQuantity() + " = " + variant.getQuantity());
+            System.out.println("  📥 INBOUND/RESTOCK: " + oldQuantity + " + " + request.getQuantity() + " = " + variant.getQuantity());
         } else {
             if (variant.getQuantity() < request.getQuantity()) {
                 String errorMsg = "Insufficient stock. Available: " + variant.getQuantity() + 
@@ -158,7 +157,7 @@ public class StockTransactionService {
                 throw new RuntimeException(errorMsg);
             }
             variant.setQuantity(variant.getQuantity() - request.getQuantity());
-            System.out.println("  📤 STOCK OUT: " + oldQuantity + " - " + request.getQuantity() + " = " + variant.getQuantity());
+            System.out.println("  📤 OUTBOUND/SHRINKAGE: " + oldQuantity + " - " + request.getQuantity() + " = " + variant.getQuantity());
         }
 
         // Save updated variant

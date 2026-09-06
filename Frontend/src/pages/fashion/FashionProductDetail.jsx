@@ -64,6 +64,7 @@ function FashionProductDetail() {
     setAdjusting(true);
     try {
       await axiosInstance.post('/stock-transactions', {
+        fashionProductId: product.id,
         productId: product.id,
         variantId: selectedVariant?.id,
         type: stockAction,
@@ -77,7 +78,8 @@ function FashionProductDetail() {
       setStockReason('');
       loadProduct();
     } catch (err) {
-      toast.error('Failed to update inventory level.');
+      const errorMsg = err.response?.data?.message || err.response?.data?.error || err.message || 'Failed to update inventory level.';
+      toast.error(errorMsg);
     } finally {
       setAdjusting(false);
     }

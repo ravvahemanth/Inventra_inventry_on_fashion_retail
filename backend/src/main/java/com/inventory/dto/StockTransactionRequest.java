@@ -42,12 +42,12 @@ public class StockTransactionRequest {
     
     // Helper method to determine if this is a fashion product transaction
     public boolean isFashionProduct() {
-        return fashionProductId != null && variantId != null;
+        return variantId != null || fashionProductId != null;
     }
     
     // Helper method to determine if this is a regular product transaction
     public boolean isRegularProduct() {
-        return productId != null;
+        return productId != null && variantId == null;
     }
     
     @Override
