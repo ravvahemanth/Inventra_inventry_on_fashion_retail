@@ -19,5 +19,7 @@ public interface AlertRepository extends JpaRepository<Alert, Long> {
     
     Optional<Alert> findByProductAndTypeAndStatus(Product product, Alert.AlertType type, Alert.AlertStatus status);
     
+    List<Alert> findByProduct(Product product);
+    
     List<Alert> findTop10ByOrderByCreatedAtDesc();
 }
