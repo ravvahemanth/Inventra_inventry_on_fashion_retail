@@ -1,34 +1,43 @@
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useEffect } from 'react';
-import { getUserRole } from '../../services/authService';
 import AdminDashboard from './AdminDashboard';
 import ManagerDashboard from './ManagerDashboard';
 import StaffDashboard from './StaffDashboard';
 
 function Dashboard() {
   const navigate = useNavigate();
-  const userRole = getUserRole();
+  const [role, setRole] = useState(null);
+  const [checking, setChecking] = useState(true);
 
   useEffect(() => {
-    // Check if user is logged in
     const token = localStorage.getItem('token');
     if (!token) {
-      navigate('/login');
+      navigate('/login', { replace: true });
       return;
     }
-  }, [navigate, userRole]);
 
-  // Route to appropriate dashboard based on role
-  if (userRole === 'ADMIN') {
+    const rawRole = localStorage.getItem('userRole') || 'STAFF';
+    const normalizedRole = rawRole.toUpperCase().replace('ROLE_', '');
+    setRole(normalizedRole);
+    setChecking(false);
+  }, [navigate]);
+
+  if (checking) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="w-8 h-8 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  // Route to appropriate dashboard based on normalized role
+  if (role === 'ADMIN') {
     return <AdminDashboard />;
-  } else if (userRole === 'MANAGER') {
+  } else if (role === 'MANAGER') {
     return <ManagerDashboard />;
-  } else if (userRole === 'STAFF') {
-    return <StaffDashboard />;
   } else {
-    // For any other role or unapproved users, redirect to login
-    navigate('/login');
-    return null;
+    // Default all store associates and floor staff to Staff Dashboard
+    return <StaffDashboard />;
   }
 }
 

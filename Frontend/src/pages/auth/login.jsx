@@ -17,6 +17,13 @@ function Login() {
   const [googleLoading, setGoogleLoading] = useState(false);
 
   useEffect(() => {
+    // If user is already authenticated, directly navigate to dashboard
+    const existingToken = localStorage.getItem('token');
+    if (existingToken) {
+      navigate('/dashboard', { replace: true });
+      return;
+    }
+
     // Process redirect result if popup was blocked
     const processRedirect = async () => {
       try {
@@ -34,7 +41,7 @@ function Login() {
           };
           const response = await firebaseLogin(firebaseUserData);
           toast.success(`Welcome, ${response.data.user?.username || firebaseUserData.displayName}!`);
-          navigate('/dashboard');
+          window.location.href = '/dashboard';
         }
       } catch (err) {
         console.error("Redirect auth error:", err);
@@ -56,7 +63,7 @@ function Login() {
       if (!firebaseUserData) return; // Handled by redirect fallback
       const response = await firebaseLogin(firebaseUserData);
       toast.success(`Welcome, ${response.data.user?.username || firebaseUserData.displayName}!`);
-      navigate('/dashboard');
+      window.location.href = '/dashboard';
     } catch (err) {
       console.error("Google sign-in error:", err);
       const friendlyMsg = mapFirebaseAuthError(err);
