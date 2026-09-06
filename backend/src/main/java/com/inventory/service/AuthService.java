@@ -110,8 +110,18 @@ public class AuthService {
             return userRepository.save(newUser);
         });
 
+        // Floor Staff signing in with Google are always instantly approved
+        if (user.getRole() == User.Role.STAFF && user.getStatus() != User.UserStatus.APPROVED) {
+            user.setStatus(User.UserStatus.APPROVED);
+            user = userRepository.save(user);
+        }
+
         if (user.getStatus() == User.UserStatus.REJECTED) {
-            throw new RuntimeException("Account approval has been rejected.");
+            throw new RuntimeException("Account approval has been rejected by Administrator.");
+        }
+
+        if (user.getStatus() == User.UserStatus.PENDING && user.getRole() != User.Role.ADMIN) {
+            throw new RuntimeException("Manager account is pending Administrator clearance.");
         }
 
         String jwt = jwtUtils.generateJwtTokenFromUsername(user.getUsername());
